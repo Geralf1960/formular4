@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Digitaler Fragebogen</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #question { font-size: 18px; margin-bottom: 15px; }
+    button { margin: 5px; padding: 8px 16px; }
+    textarea { width: 100%; margin-top: 10px; }
+    #upload { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+
+<h2>Fragebogen</h2>
+<div id="question"></div>
+<button onclick="answer('Ja')">Ja</button>
+<button onclick="answer('Nein')">Nein</button>
+
+<div id="upload" style="display:none;">
+  <p><a id="upload-link" href="#" target="_blank">→ Datei hier hochladen</a></p>
+  <label for="comment">Zusatztext (max. 250 Zeichen):</label><br>
+  <textarea id="comment" maxlength="250" rows="3"></textarea><br>
+  <button onclick="nextQuestion()">Weiter</button>
+</div>
+
+<div id="done" style="display:none;">
+  <h3>Vielen Dank für Ihre Teilnahme!</h3>
+</div>
+
+<script>
+/* ========== CONFIGURATION ========== */
+
+// EmailJS Setup
+(function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
+const SERVICE_ID = "service_b074ymd";
+const TEMPLATE_ID = "template_omwd93k";
+
+// Excel-Datei mit Emails + OneDrive-Links
+const EXCEL_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-2.xlsx";
+
+// Fragenbaum (beliebig verschachtelt möglich)
+let questions = [];
+
+// Excel laden und Baum bauen
+async function loadQuestionsFromExcel() {
+  let response = await fetch("https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx");
+  let arrayBuffer = await response.arrayBuffer();
+  let workbook = XLSX.read(arrayBuffer, { type: "array" });
+  let sheet = workbook.Sheets[workbook.SheetNames[0]];
+  let json = XLSX.utils.sheet_to_json(sheet);
+
+  // Map für schnellen Zugriff
+  let map = {};
+  json.forEach(row => {
+    map[row.ID] = {
+      id: row.ID,
+      text: row.Frage,
+      upload: row.Upload && row.Upload.toLowerCase() === "ja",
+      sub: []
+    };
+  });
+
+  // Hierarchie bauen
+  let roots = [];
+  json.forEach(row => {
+    if (row.ParentID) {
+      map[row.ParentID].sub.push(map[row.ID]);
+    } else {
+      roots.push(map[row.ID]);
+    }
+  });
+
+  questions = roots;
+}
+
+
+/* ========== STATE ========== */
+
+let answers = [];
+let currentNode = null;
+let stack = []; // für Navigation durch Baum
+let uploadLinks = {};
+
+/* ========== LOAD EXCEL ========== */
+async function loadExcel() {
+  let response = await fetch(EXCEL_URL);
+  if (!response.ok) throw new Error("Fehler beim Laden der Excel-Datei");
+  let arrayBuffer = await response.arrayBuffer();
+  let workbook = XLSX.read(arrayBuffer, { type: "array" });
+  let sheet = workbook.Sheets[workbook.SheetNames[0]];
+  let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  
+  json.slice(1).forEach(row => {
+    if (row[0] && row[1]) {
+      uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
+    }
+  });
+}
+
+/* ========== FRAGEBOGEN STARTEN ========== */
+async function startForm() {
+  await loadExcel();
+
+  // user aus URL-Parameter
+  const params = new URLSearchParams(window.location.search);
+  let user = params.get("user");
+  if (!user || !uploadLinks[user.toLowerCase()]) {
+    document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
+    return;
+  }
+  currentNode = { sub: questions, idx: 0, user: user.toLowerCase() };
+  showQuestion();
+}
+
+/* ========== FRAGENLOGIK ========== */
+function showQuestion() {
+  document.getElementById("upload").style.display = "none";
+  if (!currentNode || currentNode.idx >= currentNode.sub.length) {
+    finishForm();
+    return;
+  }
+  let q = currentNode.sub[currentNode.idx];
+  document.getElementById("question").innerText = q.text;
+}
+
+function answer(ans) {
+  let q = currentNode.sub[currentNode.idx];
+  answers.push(q.text + ": " + ans);
+
+  if (ans === "Ja" && q.sub) {
+    // gehe in Subfragen
+    stack.push(currentNode);
+    currentNode = { sub: q.sub, idx: 0, parent: q.text };
+    showQuestion();
+  } else if (ans === "Ja" && q.upload) {
+    // Upload anzeigen
+    document.getElementById("upload-link").href = uploadLinks[currentNode.user];
+    document.getElementById("upload").style.display = "block";
+    document.getElementById("question").innerText = q.text + " - Bitte laden Sie die Datei hoch.";
+  } else {
+    // nächste Frage
+    currentNode.idx++;
+    showQuestion();
+  }
+}
+
+function nextQuestion() {
+  let comment = document.getElementById("comment").value.trim();
+  if (comment) {
+    answers[answers.length - 1] += " | Kommentar: " + comment;
+  }
+  document.getElementById("comment").value = "";
+  document.getElementById("upload").style.display = "none";
+
+  currentNode.idx++;
+  showQuestion();
+}
+
+/* ========== ABSCHLUSS ========== */
+function finishForm() {
+  document.getElementById("question").style.display = "none";
+  document.getElementById("done").style.display = "block";
+
+  const params = new URLSearchParams(window.location.search);
+  let user = params.get("user");
+
+  emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    from_email: user,
+    answers: answers.join("\n")
+  }).then(() => {
+    console.log("Antworten erfolgreich per EmailJS gesendet.");
+  }).catch(err => {
+    console.error("Fehler beim Senden:", err);
+  });
+}
+
+/* ========== INIT ========== */
+startForm();
+</script>
+
+</body>
+</html>
