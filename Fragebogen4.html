@@ -47,16 +47,16 @@ let questions = [];
 
 // Excel laden und Baum bauen
 async function loadQuestionsFromExcel() {
-  let response = await fetch("https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx");
-  let arrayBuffer = await response.arrayBuffer();
-  let workbook = XLSX.read(arrayBuffer, { type: "array" });
-  let sheet = workbook.Sheets[workbook.SheetNames[0]];
-  let json = XLSX.utils.sheet_to_json(sheet);
+  const response = await fetch("https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx");
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet);
   let json = XLSX.utils.sheet_to_json(sheet);
   console.log("Geladene Fragen aus Excel:", json);
 
   // Map für schnellen Zugriff
-  let map = {};
+  const map = {};
   json.forEach(row => {
     map[row.ID] = {
       id: row.ID,
@@ -67,7 +67,7 @@ async function loadQuestionsFromExcel() {
   });
 
   // Hierarchie bauen
-  let roots = [];
+  const roots = [];
   json.forEach(row => {
     if (row.ParentID) {
       map[row.ParentID].sub.push(map[row.ID]);
