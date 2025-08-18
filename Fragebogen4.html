@@ -52,6 +52,8 @@ async function loadQuestionsFromExcel() {
   let workbook = XLSX.read(arrayBuffer, { type: "array" });
   let sheet = workbook.Sheets[workbook.SheetNames[0]];
   let json = XLSX.utils.sheet_to_json(sheet);
+  let json = XLSX.utils.sheet_to_json(sheet);
+  console.log("Geladene Fragen aus Excel:", json);
 
   // Map für schnellen Zugriff
   let map = {};
