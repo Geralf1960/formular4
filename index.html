@@ -1,1 +1,112 @@
-"Hello World"
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Fragebogen</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .question { margin-bottom: 20px; }
+    .hidden { display: none; }
+    .upload { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Fragebogen</h2>
+  <div id="question-container"></div>
+  <button id="nextBtn" class="hidden">Weiter</button>
+
+  <script>
+    let questions = [];
+    let currentQuestion = null;
+    let stack = [];
+
+    async function loadQuestionsFromExcel() {
+      try {
+        const response = await fetch("https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx");
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+
+        console.log("Geladene Fragen aus Excel:", json); // Debug
+
+        // Map für schnellen Zugriff
+        const map = {};
+        json.forEach(row => {
+          map[row.ID] = {
+            id: row.ID,
+            text: row.Frage,
+            upload: row.Upload && row.Upload.toLowerCase() === "ja",
+            sub: []
+          };
+        });
+
+        // Hierarchie bauen
+        const roots = [];
+        json.forEach(row => {
+          if (row.ParentID) {
+            map[row.ParentID].sub.push(map[row.ID]);
+          } else {
+            roots.push(map[row.ID]);
+          }
+        });
+
+        questions = roots;
+        startForm();
+      } catch (err) {
+        console.error("Fehler beim Laden der Excel-Datei:", err);
+      }
+    }
+
+    function startForm() {
+      if (questions.length > 0) {
+        stack = [...questions];
+        showNextQuestion();
+      } else {
+        document.getElementById("question-container").innerHTML = "<p>Keine Fragen gefunden.</p>";
+      }
+    }
+
+    function showNextQuestion() {
+      if (stack.length === 0) {
+        document.getElementById("question-container").innerHTML = "<p>Fragebogen abgeschlossen. Vielen Dank!</p>";
+        document.getElementById("nextBtn").classList.add("hidden");
+        return;
+      }
+
+      currentQuestion = stack.shift();
+      const container = document.getElementById("question-container");
+      container.innerHTML = `
+        <div class="question">
+          <p><strong>${currentQuestion.text}</strong></p>
+          <button onclick="answer('ja')">Ja</button>
+          <button onclick="answer('nein')">Nein</button>
+          <div id="extraInput" class="hidden">
+            ${currentQuestion.upload ? '<input type="file" class="upload" />' : ''}
+          </div>
+        </div>
+      `;
+      document.getElementById("nextBtn").classList.add("hidden");
+    }
+
+    function answer(value) {
+      if (value === "ja") {
+        if (currentQuestion.upload) {
+          document.getElementById("extraInput").classList.remove("hidden");
+        }
+        if (currentQuestion.sub.length > 0) {
+          stack = currentQuestion.sub.concat(stack); // Unterfragen zuerst
+        }
+      }
+      document.getElementById("nextBtn").classList.remove("hidden");
+    }
+
+    document.getElementById("nextBtn").addEventListener("click", showNextQuestion);
+
+    // Start
+    loadQuestionsFromExcel();
+  </script>
+</body>
+</html>
+
