@@ -39,25 +39,29 @@
 const SERVICE_ID = "service_b074ymd";
 const TEMPLATE_ID = "template_omwd93k";
 
-// Excel-Datei mit Emails + OneDrive-Links
-const EXCEL_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-2.xlsx";
+// Excel-Dateien
+const EXCEL_URL_UPLOADS = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-2.xlsx";
+const EXCEL_URL_FRAGEN = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx";
 
-// Fragenbaum (beliebig verschachtelt möglich)
+// Globale Variablen
 let questions = [];
+let uploadLinks = {};
+let answers = [];
+let currentNode = null;
+let stack = [];
 
-// Excel laden und Baum bauen
+/* ========== FRAGEN AUS EXCEL LADEN ========== */
 async function loadQuestionsFromExcel() {
-  const response = await fetch("https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx");
+  const response = await fetch(EXCEL_URL_FRAGEN);
   const arrayBuffer = await response.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json(sheet);
-  let json = XLSX.utils.sheet_to_json(sheet);
-  console.log("Geladene Fragen aus Excel:", json);
+  const rows = XLSX.utils.sheet_to_json(sheet);
+  console.log("Geladene Fragen:", rows);
 
   // Map für schnellen Zugriff
   const map = {};
-  json.forEach(row => {
+  rows.forEach(row => {
     map[row.ID] = {
       id: row.ID,
       text: row.Frage,
@@ -68,9 +72,11 @@ async function loadQuestionsFromExcel() {
 
   // Hierarchie bauen
   const roots = [];
-  json.forEach(row => {
+  rows.forEach(row => {
     if (row.ParentID) {
-      map[row.ParentID].sub.push(map[row.ID]);
+      if (map[row.ParentID]) {
+        map[row.ParentID].sub.push(map[row.ID]);
+      }
     } else {
       roots.push(map[row.ID]);
     }
@@ -79,35 +85,27 @@ async function loadQuestionsFromExcel() {
   questions = roots;
 }
 
-
-/* ========== STATE ========== */
-
-let answers = [];
-let currentNode = null;
-let stack = []; // für Navigation durch Baum
-let uploadLinks = {};
-
-/* ========== LOAD EXCEL ========== */
-async function loadExcel() {
-  let response = await fetch(EXCEL_URL);
-  if (!response.ok) throw new Error("Fehler beim Laden der Excel-Datei");
+/* ========== UPLOAD-LINKS LADEN ========== */
+async function loadExcelUploads() {
+  let response = await fetch(EXCEL_URL_UPLOADS);
   let arrayBuffer = await response.arrayBuffer();
   let workbook = XLSX.read(arrayBuffer, { type: "array" });
   let sheet = workbook.Sheets[workbook.SheetNames[0]];
-  let json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-  
-  json.slice(1).forEach(row => {
+  let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+  rows.slice(1).forEach(row => {
     if (row[0] && row[1]) {
       uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
     }
   });
 }
 
-/* ========== FRAGEBOGEN STARTEN ========== */
+/* ========== START ========== */
 async function startForm() {
-  await loadExcel();
+  await loadQuestionsFromExcel();
+  await loadExcelUploads();
 
-  // user aus URL-Parameter
+  // user aus URL
   const params = new URLSearchParams(window.location.search);
   let user = params.get("user");
   if (!user || !uploadLinks[user.toLowerCase()]) {
@@ -118,7 +116,7 @@ async function startForm() {
   showQuestion();
 }
 
-/* ========== FRAGENLOGIK ========== */
+/* ========== FRAGEN LOGIK ========== */
 function showQuestion() {
   document.getElementById("upload").style.display = "none";
   if (!currentNode || currentNode.idx >= currentNode.sub.length) {
@@ -133,10 +131,10 @@ function answer(ans) {
   let q = currentNode.sub[currentNode.idx];
   answers.push(q.text + ": " + ans);
 
-  if (ans === "Ja" && q.sub) {
+  if (ans === "Ja" && q.sub && q.sub.length > 0) {
     // gehe in Subfragen
     stack.push(currentNode);
-    currentNode = { sub: q.sub, idx: 0, parent: q.text };
+    currentNode = { sub: q.sub, idx: 0, parent: q.text, user: currentNode.user };
     showQuestion();
   } else if (ans === "Ja" && q.upload) {
     // Upload anzeigen
@@ -144,7 +142,6 @@ function answer(ans) {
     document.getElementById("upload").style.display = "block";
     document.getElementById("question").innerText = q.text + " - Bitte laden Sie die Datei hoch.";
   } else {
-    // nächste Frage
     currentNode.idx++;
     showQuestion();
   }
@@ -157,7 +154,6 @@ function nextQuestion() {
   }
   document.getElementById("comment").value = "";
   document.getElementById("upload").style.display = "none";
-
   currentNode.idx++;
   showQuestion();
 }
@@ -180,9 +176,8 @@ function finishForm() {
   });
 }
 
-/* ========== INIT ========== */
+/* INIT */
 startForm();
 </script>
-
 </body>
 </html>
