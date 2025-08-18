@@ -30,7 +30,13 @@
 <div id="done" style="display:none;">
   <h3>Vielen Dank für Ihre Teilnahme!</h3>
 </div>
-
+<div id="sent-ok" style="display:none;">
+  <h3>Ihre Antworten wurden an den Fragebogenersteller gesendet.</h3>
+</div>
+<div id="sent-not-ok" style="display:none;">
+  <h3>Fehler beim Senden:", err.</h3>
+</div>    
+  
 <script>
 /* ========== CONFIGURATION ========== */
 
@@ -171,8 +177,10 @@ function finishForm() {
     answers: answers.join("\n")
   }).then(() => {
     console.log("Antworten erfolgreich per EmailJS gesendet.");
+    document.getElementById("sent-ok").style.display = "block";
   }).catch(err => {
     console.error("Fehler beim Senden:", err);
+    document.getElementById("sent-not-ok").style.display = "block";
   });
 }
 
