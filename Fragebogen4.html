@@ -103,7 +103,8 @@ async function loadExcelUploads() {
     if (row[0] && row[1]) {
       uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
     }
-  });
+  })
+    console.log("Geladene user:", rows);;
 }
 
 /* ========== START ========== */
@@ -115,6 +116,7 @@ async function startForm() {
   const params = new URLSearchParams(window.location.search);
   let user = params.get("user");
   if (!user || !uploadLinks[user.toLowerCase()]) {
+    console.log("user:", user);
     document.getElementById("question").innerText = "KEIN Upload-Link für diesen Benutzer gefunden.", user;
     return;
   }
