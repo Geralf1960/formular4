@@ -98,7 +98,8 @@ async function loadExcelUploads() {
   let workbook = XLSX.read(arrayBuffer, { type: "array" });
   let sheet = workbook.Sheets[workbook.SheetNames[0]];
   let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
+  console.log("Geladene User:", rows);
+ 
   rows.slice(1).forEach(row => {
     if (row[0] && row[1]) {
       uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
@@ -115,9 +116,9 @@ async function startForm() {
   // user aus URL
   const params = new URLSearchParams(window.location.search);
   let user = params.get("user");
+  console.log("user:", user);
   if (!user || !uploadLinks[user.toLowerCase()]) {
-    console.log("user:", user);
-    document.getElementById("question").innerText = "KEIN Upload-Link für diesen Benutzer gefunden.", user;
+    document.getElementById("question").innerText = "KEIN Upload-Link für diesen Benutzer gefunden!", user;
     return;
   }
   currentNode = { sub: questions, idx: 0, user: user.toLowerCase() };
