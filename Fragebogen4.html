@@ -104,8 +104,7 @@ async function loadExcelUploads() {
     if (row[0] && row[1]) {
       uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
     }
-  })
-    console.log("Geladene user:", rows);;
+  });
 }
 
 /* ========== START ========== */
