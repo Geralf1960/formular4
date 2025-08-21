@@ -115,7 +115,7 @@ async function startForm() {
   const params = new URLSearchParams(window.location.search);
   let user = params.get("user");
   if (!user || !uploadLinks[user.toLowerCase()]) {
-    document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
+    document.getElementById("question").innerText = "KEIN Upload-Link für diesen Benutzer gefunden.", user;
     return;
   }
   currentNode = { sub: questions, idx: 0, user: user.toLowerCase() };
