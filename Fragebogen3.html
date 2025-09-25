@@ -208,9 +208,9 @@ function finishForm() {
 
   dbg("Antworten (gesammelt):", answers);
   // optional: send via EmailJS if configured
-  if (EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && window.emailjs) {
+  // if (EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && window.emailjs) {
     // init if needed
-    if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY);
+  //  if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY);
     const payload = {
       from_email: userEmail || 'unknown',
       answers: answers.map(a => `${a.id}: ${a.text} => ${a.answer}${a.comment ? ' | ' + a.comment : ''}`).join("\n")
@@ -218,9 +218,9 @@ function finishForm() {
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, payload)
       .then(() => dbg("EmailJS: erfolgreich gesendet"))
       .catch(err => dbg("EmailJS Fehler", err));
-  } else {
-    dbg("EmailJS nicht konfiguriert oder Public Key fehlt - keine Mail versendet.");
-  }
+  // } else {
+  //  dbg("EmailJS nicht konfiguriert oder Public Key fehlt - keine Mail versendet.");
+ // }
 }
 
 /* ========== load Excel files robustly ========== */
