@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Fragebogen (robust)</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- optional: EmailJS SDK (nur notwendig wenn du EmailJS einsetzen willst) -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 780px; }
+    #status { color: #333; margin-bottom: 12px; }
+    #error { color: #b00; margin-bottom: 12px; }
+    #question { font-size: 18px; margin-bottom: 12px; }
+    button { margin-right: 8px; padding: 8px 14px; }
+    #upload { margin-top: 14px; padding: 10px; border: 1px solid #ddd; display:none; }
+    textarea { width:100%; box-sizing:border-box; margin-top:8px; }
+    pre.debug { background:#f7f7f7; padding:8px; border:1px solid #eee; max-height:160px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>Digitaler Fragebogen — Debug-Version</h1>
+  <div id="status">Status: Initialisiere...</div>
+  <div id="error" aria-live="polite"></div>
+
+  <div id="question">lade...</div>
+  <button id="btnYes">Ja</button>
+  <button id="btnNo">Nein</button>
+
+  <div id="upload">
+    <p><a id="upload-link" href="#" target="_blank">→ Datei hier hochladen</a></p>
+    <label for="comment">Zusatztext (max. 250 Zeichen)</label>
+    <textarea id="comment" maxlength="250" placeholder="Optionaler Kommentar..."></textarea>
+  </div>
+
+  <div id="done" style="display:none;">
+    <h3>Vielen Dank — Fragebogen abgeschlossen.</h3>
+  </div>
+
+  <h3>Debug (Konsole ist besser)</h3>
+  <pre class="debug" id="debug"></pre>
+
+<script>
+/* ================== CONFIG ================== */
+// setze hier deine tatsächlichen raw-github URLs (prüfe Branch und Pfad)
+const EXCEL_URL_FRAGEN  = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragenbaum.xlsx";
+const EXCEL_URL_UPLOADS = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-2.xlsx";
+
+// EmailJS (optional)
+// (nur verwenden, wenn EmailJS konfiguriert ist)
+const EMAILJS_PUBLIC_KEY = ""; // optional
+const EMAILJS_SERVICE_ID = "";
+const EMAILJS_TEMPLATE_ID = "";
+
+/* ========== internal state ========== */
+let nodesRoots = [];       // array der root-nodes (questions tree)
+let uploadLinks = {};      // map email -> upload link
+let answers = [];          // gesammelte Antworten (strings)
+let currentNode = null;    // { sub: [...], idx: 0, user: 'email' } - aktueller Fragenblock
+let stack = [];            // Elternstack für recursion navigation
+let userEmail = null;
+
+/* UI elements */
+const elStatus = document.getElementById('status');
+const elError  = document.getElementById('error');
+const elQuestion = document.getElementById('question');
+const elBtnYes = document.getElementById('btnYes');
+const elBtnNo  = document.getElementById('btnNo');
+const elUpload = document.getElementById('upload');
+const elUploadLink = document.getElementById('upload-link');
+const elComment = document.getElementById('comment');
+const elDone = document.getElementById('done');
+const elDebug = document.getElementById('debug');
+
+/* debug helper */
+function dbg(msg, obj) {
+  console.log(msg, obj||'');
+  elDebug.textContent += msg + (obj ? ("  " + JSON.stringify(obj) + "\n") : "\n");
+  elDebug.scrollTop = elDebug.scrollHeight;
+}
+
+/* ========== Utility: advance navigation ========== */
+function advanceAfterIncrement() {
+  // while currentNode finished, pop parent and increment parent's idx
+  while (currentNode && currentNode.idx >= currentNode.sub.length) {
+    if (stack.length > 0) {
+      let parent = stack.pop();
+      parent.idx = (parent.idx || 0) + 1; // advance parent to next sibling
+      currentNode = parent;
+    } else {
+      // no parent -> finished all roots
+      currentNode = null;
+      break;
+    }
+  }
+  if (!currentNode) {
+    finishForm();
+  } else {
+    renderCurrentQuestion();
+  }
+}
+
+/* ========== render question ========== */
+function renderCurrentQuestion() {
+  elError.textContent = "";
+  elUpload.style.display = 'none';
+  elComment.value = "";
+  const q = currentNode.sub[currentNode.idx];
+  if (!q) {
+    // nothing here -> advance logic
+    advanceAfterIncrement();
+    return;
+  }
+  elQuestion.textContent = q.text;
+  elStatus.textContent = `Status: Frage ${q.id} (Level ${stack.length})`;
+  dbg("zeige Frage", { id: q.id, text: q.text, upload: q.upload, parentCount: stack.length });
+}
+
+/* ========== answer handlers ========== */
+elBtnYes.addEventListener('click', ()=> handleAnswer('Ja'));
+elBtnNo.addEventListener('click',  ()=> handleAnswer('Nein'));
+
+function handleAnswer(ans) {
+  if (!currentNode) return;
+  const q = currentNode.sub[currentNode.idx];
+  if (!q) return;
+  answers.push({id: q.id, text: q.text, answer: ans, comment: null});
+
+  if (ans === 'Ja' && q.sub && q.sub.length > 0) {
+    // descend into sub-questions
+    dbg("Descend to subfragen of", q.id);
+    stack.push(currentNode);
+    currentNode = { sub: q.sub, idx: 0, user: currentNode.user }; // carry user
+    renderCurrentQuestion();
+    return;
+  }
+
+  if (ans === 'Ja' && q.upload) {
+    // show upload area but don't finish - user triggers progression via upload click or comment
+    const baseLink = uploadLinks[currentNode.user];
+    if (!baseLink) {
+      elError.textContent = "Kein Upload-Link gefunden für Benutzer: " + currentNode.user;
+      dbg("kein upload link for user", currentNode.user);
+      return;
+    }
+    // attach email parameter if not already present
+    const linkWithEmail = baseLink.includes('?') ? `${baseLink}&email=${encodeURIComponent(currentNode.user)}` : `${baseLink}?email=${encodeURIComponent(currentNode.user)}`;
+    elUploadLink.href = linkWithEmail;
+    elUpload.style.display = 'block';
+    elQuestion.textContent = q.text + " — Bitte laden Sie die Datei hoch (Upload öffnet neues Tab).";
+
+    // setup automatic advance:
+    // 1) when user clicks upload link -> advance after small delay
+    elUploadLink.onclick = function() {
+      // allow browser to open the link, then continue
+      setTimeout(() => {
+        // save comment if any, attach to last answer later
+        saveCommentToLastAnswer();
+        // advance to next question in same block
+        currentNode.idx++;
+        advanceAfterIncrement();
+      }, 700);
+      // returning true allows default anchor behavior
+      return true;
+    };
+
+    // 2) if user types comment: debounce and auto advance once they stopped typing
+    let debounceTimer = null;
+    elComment.oninput = function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        // only proceed if there is some content (user intentionally added)
+        if (elComment.value.trim().length > 0) {
+          saveCommentToLastAnswer();
+          currentNode.idx++;
+          advanceAfterIncrement();
+        }
+      }, 900);
+    };
+    return;
+  }
+
+  // default: just go to next sibling in this block
+  currentNode.idx++;
+  advanceAfterIncrement();
+}
+
+/* helper to save comment */
+function saveCommentToLastAnswer() {
+  const last = answers[answers.length - 1];
+  if (!last) return;
+  const c = elComment.value.trim();
+  if (c) last.comment = c;
+  dbg("Kommentar gespeichert für", last.id);
+}
+
+/* ========== finish form ========== */
+function finishForm() {
+  elQuestion.style.display = 'none';
+  elBtnYes.style.display = 'none';
+  elBtnNo.style.display = 'none';
+  elUpload.style.display = 'none';
+  elDone.style.display = 'block';
+  elStatus.textContent = 'Status: Fertig';
+
+  dbg("Antworten (gesammelt):", answers);
+  // optional: send via EmailJS if configured
+  if (EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && window.emailjs) {
+    // init if needed
+    if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY);
+    const payload = {
+      from_email: userEmail || 'unknown',
+      answers: answers.map(a => `${a.id}: ${a.text} => ${a.answer}${a.comment ? ' | ' + a.comment : ''}`).join("\n")
+    };
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, payload)
+      .then(() => dbg("EmailJS: erfolgreich gesendet"))
+      .catch(err => dbg("EmailJS Fehler", err));
+  } else {
+    dbg("EmailJS nicht konfiguriert oder Public Key fehlt - keine Mail versendet.");
+  }
+}
+
+/* ========== load Excel files robustly ========== */
+async function fetchArrayBuffer(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Fehler beim Laden: ${res.status} ${res.statusText} (${url})`);
+  // some servers return Response whose arrayBuffer is a function; modern browsers support it
+  if (typeof res.arrayBuffer !== 'function') {
+    // try to get blob then arrayBuffer
+    const blob = await res.blob();
+    return await blob.arrayBuffer();
+  }
+  return await res.arrayBuffer();
+}
+
+async function loadUploadLinks() {
+  try {
+    dbg("lade Upload-Links von", EXCEL_URL_UPLOADS);
+    const buffer = await fetchArrayBuffer(EXCEL_URL_UPLOADS);
+    const wb = XLSX.read(buffer, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    // expect header row [Email, Link] or similar
+    if (rows.length < 2) {
+      dbg("Upload-Excel: keine Daten gefunden");
+    }
+    // start at row 1 to skip header
+    rows.slice(1).forEach(r => {
+      const email = (r[0] || '').toString().trim().toLowerCase();
+      const link  = (r[1] || '').toString().trim();
+      if (email && link) uploadLinks[email] = link;
+    });
+    dbg("uploadLinks geladen, count=" + Object.keys(uploadLinks).length);
+  } catch (e) {
+    elError.textContent = "Fehler beim Laden der Upload-Links: " + e.message;
+    dbg("Fehler loadUploadLinks", e);
+    throw e;
+  }
+}
+
+async function loadQuestionsTree() {
+  try {
+    dbg("lade Fragenbaum von", EXCEL_URL_FRAGEN);
+    const buffer = await fetchArrayBuffer(EXCEL_URL_FRAGEN);
+    const wb = XLSX.read(buffer, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    // show available keys (debug)
+    if (rows.length === 0) {
+      elError.textContent = "Fragen-Excel enthält keine Zeilen.";
+      dbg("Keine Zeilen in Fragen-Excel");
+      return;
+    }
+    dbg("erste Zeile keys:", Object.keys(rows[0]));
+    // normalize keys: try to detect columns for ID, ParentID, Frage/Text, Upload
+    // prefer common names used in examples: ID, ParentID, Frage or Text, Upload
+    const pick = (r, candidates) => {
+      for (const c of candidates) if (r.hasOwnProperty(c)) return c;
+      return null;
+    };
+    const sample = rows[0];
+    const colID = pick(sample, ['ID','Id','id']);
+    const colParent = pick(sample, ['ParentID','ParentId','parentid','Parent','parent']);
+    const colText = pick(sample, ['Frage','Text','Question','question','frage']);
+    const colUpload = pick(sample, ['Upload','upload','Upload?','ErfordernUpload']);
+    dbg("Spalten erkannt:", {colID, colParent, colText, colUpload});
+    // build map of nodes
+    const map = {};
+    rows.forEach(row => {
+      const id = String(row[colID]).trim();
+      const parent = row[colParent] == null ? null : String(row[colParent]).trim();
+      const text = row[colText] == null ? '' : String(row[colText]).trim();
+      const up = row[colUpload] == null ? false : (String(row[colUpload]).trim().toLowerCase() === 'ja');
+      map[id] = { id, parentId: parent, text, upload: up, sub: [] };
+    });
+    // link hierarchy
+    const roots = [];
+    Object.values(map).forEach(n => {
+      if (n.parentId && map[n.parentId]) {
+        map[n.parentId].sub.push(n);
+      } else {
+        roots.push(n);
+      }
+    });
+    nodesRoots = roots;
+    dbg("Fragenbaum geladen, Root-Count=" + roots.length);
+  } catch (e) {
+    elError.textContent = "Fehler beim Laden der Fragen: " + e.message;
+    dbg("Fehler loadQuestionsTree", e);
+    throw e;
+  }
+}
+
+/* ========== init sequence ========== */
+async function init() {
+  elStatus.textContent = "Status: Lade Dateien...";
+  try {
+    await loadUploadLinks();
+    await loadQuestionsTree();
+
+    // extract user param
+    const params = new URLSearchParams(window.location.search);
+    userEmail = (params.get('user') || '').trim().toLowerCase();
+    if (!userEmail) {
+      elError.textContent = "Fehler: kein user-Parameter in URL (z.B. ?user=mail@domain).";
+      dbg("Kein user param");
+      return;
+    }
+    if (!uploadLinks[userEmail]) {
+      elError.textContent = "Kein Upload-Link für Benutzer: " + userEmail;
+      dbg("uploadlink fehlt für", userEmail);
+      return;
+    }
+
+    // create initial currentNode -> roots block
+    currentNode = { sub: nodesRoots, idx: 0, user: userEmail };
+    elStatus.textContent = "Status: Bereit";
+    renderCurrentQuestion();
+  } catch (e) {
+    dbg("Init Fehler", e);
+  }
+}
+
+/* start */
+init();
+
+</script>
+</body>
+</html>
