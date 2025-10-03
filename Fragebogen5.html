@@ -12,12 +12,13 @@
     button { margin: 5px; padding: 8px 16px; }
     textarea { width: 100%; margin-top: 10px; }
     #upload { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
-    .hidden { display: none; }
+    #done { margin-top: 20px; }
+    #errorMsg { margin-top: 15px; color: #fff; background: #c0392b; padding: 10px; border-radius: 5px; display: none; }
   </style>
 </head>
 <body>
 
-<h2>Fragebogen 5</h2>
+<h2>Fragebogen</h2>
 <div id="question"></div>
 <button onclick="answer('Ja')">Ja</button>
 <button onclick="answer('Nein')">Nein</button>
@@ -33,8 +34,9 @@
   <h3>Vielen Dank für Ihre Teilnahme!</h3>
 </div>
 
+<div id="errorMsg"></div>
+
 <script>
-/* ========== CONFIGURATION ========== */
 (function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
 const SERVICE_ID = "service_b074ymd";
 const TEMPLATE_ID = "template_omwd93k";
@@ -48,7 +50,6 @@ let currentNode = null;
 let stack = [];
 let uploadLinks = {};
 
-/* ========== FRAGEN AUS EXCEL LADEN ========== */
 async function loadQuestionsFromExcel() {
   const response = await fetch(QUESTIONS_URL);
   const arrayBuffer = await response.arrayBuffer();
@@ -78,7 +79,6 @@ async function loadQuestionsFromExcel() {
   questions = roots;
 }
 
-/* ========== UPLOAD-LINKS LADEN ========== */
 async function loadExcel() {
   let response = await fetch(EXCEL_URL);
   if (!response.ok) throw new Error("Fehler beim Laden der Excel-Datei");
@@ -94,7 +94,6 @@ async function loadExcel() {
   });
 }
 
-/* ========== FRAGEBOGEN STARTEN ========== */
 async function startForm() {
   await loadExcel();
   await loadQuestionsFromExcel();
@@ -109,7 +108,6 @@ async function startForm() {
   showQuestion();
 }
 
-/* ========== FRAGENLOGIK ========== */
 function showQuestion() {
   document.getElementById("upload").style.display = "none";
   if (!currentNode || currentNode.idx >= currentNode.sub.length) {
@@ -150,7 +148,6 @@ function nextQuestion() {
   showQuestion();
 }
 
-/* ========== ABSCHLUSS ========== */
 function finishForm() {
   document.getElementById("question").style.display = "none";
   document.getElementById("done").style.display = "block";
@@ -162,13 +159,14 @@ function finishForm() {
     from_email: user,
     answers: answers.join("\n")
   }).then(() => {
-    // Erfolg: keine Debug-Ausgabe, nur still speichern
+    // Erfolg – nichts anzeigen
   }).catch(() => {
-    alert("Es gab ein Problem beim Senden Ihrer Antworten. Bitte versuchen Sie es später erneut.");
+    let errBox = document.getElementById("errorMsg");
+    errBox.style.display = "block";
+    errBox.innerText = "❌ Es gab ein Problem beim Senden Ihrer Antworten. Bitte versuchen Sie es später erneut.";
   });
 }
 
-/* ========== INIT ========== */
 startForm();
 </script>
 </body>
