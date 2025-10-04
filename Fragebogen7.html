@@ -75,6 +75,7 @@ async function init() {
 
   const params = new URLSearchParams(window.location.search);
   userEmail = params.get("user");
+  log uploadLinks[userEmail.toLowerCase();
   if (!userEmail || !uploadLinks[userEmail.toLowerCase()]) {
     document.body.innerHTML = "<h3>Kein Upload-Link für diesen Benutzer gefunden.</h3>";
     return;
