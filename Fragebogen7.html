@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Digitaler Fragebogen</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; max-width: 600px; }
+    #question { font-size: 18px; margin-bottom: 15px; }
+    button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+    textarea, select, input { width: 100%; margin-top: 8px; }
+    #upload, #attributes { margin-top: 15px; border: 1px solid #ccc; padding: 10px; display: none; }
+    #done { display: none; }
+  </style>
+</head>
+<body>
+
+<h2>Digitaler Fragebogen</h2>
+<div id="question"></div>
+<div id="attributes"></div>
+
+<button onclick="answer('Ja')">Ja</button>
+<button onclick="answer('Nein')">Nein</button>
+
+<div id="upload">
+  <p><a id="upload-link" href="#" target="_blank">→ Datei hier hochladen</a></p>
+  <label for="comment">Kommentar (optional):</label>
+  <textarea id="comment" maxlength="250" rows="3"></textarea>
+  <button onclick="nextQuestion()">Weiter</button>
+</div>
+
+<div id="done">
+  <h3>Vielen Dank für Ihre Teilnahme!</h3>
+</div>
+
+<script>
+/* ======== EmailJS ======== */
+(function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
+const SERVICE_ID = "service_b074ymd";
+const TEMPLATE_ID = "template_omwd93k";
+
+/* ======== Datenquellen ======== */
+const FRAGEN_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragen.xlsx";
+const UPLOAD_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links.xlsx";
+
+/* ======== Zustände ======== */
+let uploadLinks = {};
+let userEmail = "";
+let answers = [];
+let questionTree = [];
+let stack = []; // Navigation
+let currentNode = null;
+
+/* ======== Excel laden ======== */
+async function loadExcel(url) {
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(sheet);
+}
+
+/* ======== Initialisierung ======== */
+async function init() {
+  const uploadData = await loadExcel(UPLOAD_URL);
+  uploadData.forEach(row => {
+    if (row.Email && row.Link) {
+      uploadLinks[row.Email.trim().toLowerCase()] = row.Link.trim();
+    }
+  });
+
+  const fragen = await loadExcel(FRAGEN_URL);
+  questionTree = buildQuestionTree(fragen);
+
+  const params = new URLSearchParams(window.location.search);
+  userEmail = params.get("user");
+  if (!userEmail || !uploadLinks[userEmail.toLowerCase()]) {
+    document.body.innerHTML = "<h3>Kein Upload-Link für diesen Benutzer gefunden.</h3>";
+    return;
+  }
+
+  currentNode = { sub: questionTree, idx: 0 };
+  showQuestion();
+}
+
+/* ======== Baumstruktur aufbauen ======== */
+function buildQuestionTree(fragen) {
+  const map = {};
+  fragen.forEach(q => {
+    map[q.ID] = {
+      id: q.ID,
+      text: q.Frage,
+      upload: q.Upload && q.Upload.toLowerCase() === "ja",
+      attrs: q.Attribute ? q.Attribute.split(";").map(a => a.trim()) : [],
+      parent: q.ParentID || null,
+      sub: []
+    };
+  });
+  const roots = [];
+  fragen.forEach(q => {
+    if (q.ParentID && map[q.ParentID]) {
+      map[q.ParentID].sub.push(map[q.ID]);
+    } else {
+      roots.push(map[q.ID]);
+    }
+  });
+  return roots;
+}
+
+/* ======== Frage anzeigen ======== */
+function showQuestion() {
+  document.getElementById("upload").style.display = "none";
+  document.getElementById("attributes").style.display = "none";
+
+  if (!currentNode || currentNode.idx >= currentNode.sub.length) {
+    if (stack.length > 0) {
+      currentNode = stack.pop();
+      currentNode.idx++;
+      showQuestion();
+      return;
+    }
+    finishForm();
+    return;
+  }
+
+  const q = currentNode.sub[currentNode.idx];
+  document.getElementById("question").innerText = q.text;
+}
+
+/* ======== Antwort verarbeiten ======== */
+function answer(ans) {
+  const q = currentNode.sub[currentNode.idx];
+  const entry = { frage: q.text, antwort: ans, attribute: "", kommentar: "" };
+
+  if (ans === "Ja") {
+    // Attribute vorhanden?
+    if (q.attrs.length > 0) {
+      const attrDiv = document.getElementById("attributes");
+      attrDiv.innerHTML = "<h4>Zusatzangaben:</h4>";
+      q.attrs.forEach(a => {
+        attrDiv.innerHTML += `<label>${a}: <input type="text" id="attr_${a}" maxlength="100"></label><br>`;
+      });
+      attrDiv.innerHTML += `<button onclick="saveAttributes()">Weiter</button>`;
+      attrDiv.style.display = "block";
+      return;
+    }
+
+    // Upload vorhanden?
+    if (q.upload) {
+      document.getElementById("upload-link").href = uploadLinks[userEmail.toLowerCase()];
+      document.getElementById("upload").style.display = "block";
+      answers.push(entry);
+      return;
+    }
+
+    // Unterfragen vorhanden?
+    if (q.sub && q.sub.length > 0) {
+      stack.push(currentNode);
+      currentNode = { sub: q.sub, idx: 0 };
+      answers.push(entry);
+      showQuestion();
+      return;
+    }
+  }
+
+  // normale Weiterführung
+  answers.push(entry);
+  currentNode.idx++;
+  showQuestion();
+}
+
+/* ======== Attribute speichern ======== */
+function saveAttributes() {
+  const q = currentNode.sub[currentNode.idx];
+  const values = q.attrs.map(a => {
+    const val = document.getElementById("attr_" + a).value.trim();
+    return val ? `${a}: ${val}` : "";
+  }).filter(v => v !== "").join(", ");
+
+  const entry = { frage: q.text, antwort: "Ja", attribute: values, kommentar: "" };
+  answers.push(entry);
+  document.getElementById("attributes").style.display = "none";
+
+  if (q.upload) {
+    document.getElementById("upload-link").href = uploadLinks[userEmail.toLowerCase()];
+    document.getElementById("upload").style.display = "block";
+    return;
+  }
+
+  if (q.sub && q.sub.length > 0) {
+    stack.push(currentNode);
+    currentNode = { sub: q.sub, idx: 0 };
+    showQuestion();
+    return;
+  }
+
+  currentNode.idx++;
+  showQuestion();
+}
+
+/* ======== Nach Upload / Kommentar ======== */
+function nextQuestion() {
+  const q = currentNode.sub[currentNode.idx];
+  const comment = document.getElementById("comment").value.trim();
+  const entry = answers.find(e => e.frage === q.text);
+  if (entry) entry.kommentar = comment;
+
+  document.getElementById("comment").value = "";
+  document.getElementById("upload").style.display = "none";
+
+  if (q.sub && q.sub.length > 0) {
+    stack.push(currentNode);
+    currentNode = { sub: q.sub, idx: 0 };
+    showQuestion();
+    return;
+  }
+
+  currentNode.idx++;
+  showQuestion();
+}
+
+/* ======== Abschluss ======== */
+function finishForm() {
+  document.getElementById("question").style.display = "none";
+  document.getElementById("done").style.display = "block";
+
+  const answerText = answers.map(a =>
+    `${a.frage}\nAntwort: ${a.antwort}\nAttribute: ${a.attribute}\nKommentar: ${a.kommentar}\n`
+  ).join("\n---------------------\n");
+
+  emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    from_email: userEmail,
+    answers: answerText
+  }).then(() => {
+    alert("Antworten erfolgreich übermittelt. Vielen Dank!");
+  }).catch(() => {
+    alert("Fehler beim Senden der Antworten.");
+  });
+}
+
+/* ======== Start ======== */
+init();
+</script>
+</body>
+</html>
