@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen-8</h2>
+<h2>Fragebogen-8 (Dropdown-Fix)</h2>
 <div id="question"></div>
 <button onclick="answer('Ja')">Ja</button>
 <button onclick="answer('Nein')">Nein</button>
@@ -52,7 +52,12 @@ let answers = [];
 let currentNode = null;
 let uploadLinks = {};
 
-/* ========== FRAGEN AUS EXCEL LADEN ========== */
+/* Hilfsfunktion: slugify für IDs */
+function slugify(s) {
+  return s.toString().toLowerCase().replace(/\s+/g,'_').replace(/[^\w\-]/g,'');
+}
+
+/* ======== FRAGEN AUS EXCEL LADEN ======== */
 async function loadQuestionsFromExcel() {
   const response = await fetch(QUESTIONS_URL);
   const arrayBuffer = await response.arrayBuffer();
@@ -65,15 +70,15 @@ async function loadQuestionsFromExcel() {
     map[row.ID] = {
       id: row.ID,
       text: row.Frage,
-      upload: row.Upload && row.Upload.toLowerCase() === "ja",
-      attributes: row.Attribute ? row.Attribute.split(";") : [],
+      upload: row.Upload && row.Upload.toString().toLowerCase() === "ja",
+      attributes: row.Attribute ? row.Attribute.split(";").map(x => x.trim()).filter(Boolean) : [],
       sub: []
     };
   });
 
   const roots = [];
   json.forEach(row => {
-    if (row.ParentID) {
+    if (row.ParentID && map[row.ParentID]) {
       map[row.ParentID].sub.push(map[row.ID]);
     } else {
       roots.push(map[row.ID]);
@@ -82,22 +87,22 @@ async function loadQuestionsFromExcel() {
   questions = roots;
 }
 
-/* ========== UPLOAD-LINKS LADEN ========== */
+/* ======== UPLOAD-LINKS LADEN ======== */
 async function loadExcel() {
   const response = await fetch(EXCEL_URL);
   const arrayBuffer = await response.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
   json.slice(1).forEach(row => {
     if (row[0] && row[1]) {
-      uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
+      uploadLinks[row[0].toString().trim().toLowerCase()] = row[1].toString().trim();
     }
   });
 }
 
-/* ========== START ========== */
+/* ======== START ======== */
 async function startForm() {
   await loadExcel();
   await loadQuestionsFromExcel();
@@ -105,14 +110,14 @@ async function startForm() {
   const params = new URLSearchParams(window.location.search);
   const user = params.get("user");
   if (!user || !uploadLinks[user.toLowerCase()]) {
-    document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
+    document.getElementById("question").innerText = "Kein Upload-Link für diesem Benutzer gefunden.";
     return;
   }
   currentNode = { sub: questions, idx: 0, user: user.toLowerCase() };
   showQuestion();
 }
 
-/* ========== FRAGE ANZEIGEN ========== */
+/* ======== ANZEIGE / NAVIGATION ======== */
 function showQuestion() {
   document.getElementById("upload").style.display = "none";
   document.getElementById("attributes").style.display = "none";
@@ -121,117 +126,219 @@ function showQuestion() {
     finishForm();
     return;
   }
-
   const q = currentNode.sub[currentNode.idx];
   document.getElementById("question").innerText = q.text;
 }
 
-/* ========== ANTWORT ========== */
+/* ======== ANTOWRT VERARBEITEN ======== */
 function answer(ans) {
   const q = currentNode.sub[currentNode.idx];
-  answers.push(q.text + ": " + ans);
+  answers.push({ frage: q.text, antwort: ans, attribute: {}, kommentar: "" });
 
   if (ans === "Ja") {
+    // Upload anzeigen falls gesetzt
     if (q.upload) {
       document.getElementById("upload-link").href = uploadLinks[currentNode.user];
       document.getElementById("upload").style.display = "block";
     }
+    // Attribute anzeigen falls vorhanden
     if (q.attributes.length > 0) {
       renderAttributes(q.attributes);
       document.getElementById("attributes").style.display = "block";
-      return;
+      return; // warte auf Weiter()
     }
   }
 
+  // sonst: weiter
   currentNode.idx++;
   showQuestion();
 }
 
-/* ========== ATTRIBUTE ERZEUGEN ========== */
+/* ======== Attribute-Parsing und Rendering ========
+   Erwartetes Format (Excel, Spalte Attribute):
+   - "Farbe:Text; Baujahr:Number; Priorität:Dropdown(Niedrig,Mittel,Hoch); Aktiv:boolean; Notiz:Textarea"
+   - Synonyme für Dropdown: Dropdown(...) oder Select(...)
+===============================================*/
+function parseAttributeDef(def) {
+  // def z.B. "Priorität:Dropdown(Niedrig,Mittel,Hoch)"
+  const parts = def.split(":");
+  const label = parts.shift().trim();
+  const typeRaw = parts.join(":").trim() || "text";
+  const m = typeRaw.match(/^([a-zA-Z]+)\s*(?:\((.*)\))?$/); // base and optional args
+  const base = m ? m[1].toLowerCase() : "text";
+  const args = m && m[2] ? m[2].trim() : null;
+  // split args by comma or semicolon
+  const options = args ? args.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : [];
+  return { label, base, options };
+}
+
 function renderAttributes(attrDefs) {
   const form = document.getElementById("attrForm");
   form.innerHTML = "";
 
   attrDefs.forEach(def => {
-    if (!def.trim()) return;
-    const [label, type] = def.split(":").map(s => s.trim());
+    if (!def || !def.trim()) return;
+    const parsed = parseAttributeDef(def);
+    const id = `attr_${slugify(parsed.label)}`;
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "8px";
+
     const lbl = document.createElement("label");
-    lbl.innerText = label + ": ";
+    lbl.htmlFor = id;
+    lbl.innerText = parsed.label + ": ";
     wrapper.appendChild(lbl);
 
-    let input;
+    let inputEl;
 
-    switch (type?.toLowerCase()) {
+    switch (parsed.base) {
       case "number":
-        input = document.createElement("input");
-        input.type = "number";
-        input.step = "any";
+        inputEl = document.createElement("input");
+        inputEl.type = "number";
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
         break;
 
       case "date":
-        input = document.createElement("input");
-        input.type = "date";
+        inputEl = document.createElement("input");
+        inputEl.type = "date";
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
         break;
 
       case "boolean":
-        input = document.createElement("select");
-        ["Ja", "Nein"].forEach(opt => {
-          const option = document.createElement("option");
-          option.value = opt;
-          option.textContent = opt;
-          input.appendChild(option);
+        inputEl = document.createElement("select");
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
+        ["", "Ja", "Nein"].forEach(v => {
+          const o = document.createElement("option");
+          o.value = v;
+          o.textContent = v === "" ? "—" : v;
+          inputEl.appendChild(o);
         });
         break;
 
       case "dropdown":
-        input = document.createElement("select");
-        const options = def.match(/\(([^)]+)\)/);
-        if (options) {
-          options[1].split(",").forEach(o => {
-            const option = document.createElement("option");
-            option.value = o.trim();
-            option.textContent = o.trim();
-            input.appendChild(option);
-          });
-        }
+      case "select":
+        inputEl = document.createElement("select");
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
+        // placeholder
+        const ph = document.createElement("option");
+        ph.value = "";
+        ph.textContent = "Keine Auswahl";
+        inputEl.appendChild(ph);
+        parsed.options.forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt;
+          inputEl.appendChild(o);
+        });
         break;
 
       case "checkbox":
-        input = document.createElement("input");
-        input.type = "checkbox";
+        // If options provided -> multiple checkboxes, else single checkbox (boolean)
+        if (parsed.options.length > 0) {
+          const container = document.createElement("div");
+          parsed.options.forEach((opt, i) => {
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.id = `${id}_${i}`;
+            cb.value = opt;
+            cb.dataset.label = parsed.label;
+            const lblcb = document.createElement("label");
+            lblcb.htmlFor = cb.id;
+            lblcb.style.marginLeft = "6px";
+            lblcb.textContent = opt;
+            const row = document.createElement("div");
+            row.appendChild(cb);
+            row.appendChild(lblcb);
+            container.appendChild(row);
+          });
+          inputEl = container;
+        } else {
+          inputEl = document.createElement("input");
+          inputEl.type = "checkbox";
+          inputEl.id = id;
+          inputEl.dataset.label = parsed.label;
+        }
         break;
 
       case "textarea":
-        input = document.createElement("textarea");
-        input.rows = 3;
+        inputEl = document.createElement("textarea");
+        inputEl.id = id;
+        inputEl.rows = 3;
+        inputEl.dataset.label = parsed.label;
+        break;
+
+      case "upload":
+        inputEl = document.createElement("input");
+        inputEl.type = "file";
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
         break;
 
       default:
-        input = document.createElement("input");
-        input.type = "text";
+        // text fallback
+        inputEl = document.createElement("input");
+        inputEl.type = "text";
+        inputEl.id = id;
+        inputEl.dataset.label = parsed.label;
+        break;
     }
 
-    input.dataset.label = label;
-    wrapper.appendChild(input);
+    // append input element(s)
+    wrapper.appendChild(inputEl);
     form.appendChild(wrapper);
   });
 }
 
-/* ========== NÄCHSTE FRAGE ========== */
+/* ======== WEITER: Attribute auslesen und Frage fortsetzen ======== */
 function nextQuestion() {
   const form = document.getElementById("attrForm");
-  const inputs = form.querySelectorAll("input, select, textarea");
   const q = currentNode.sub[currentNode.idx];
+  if (!q) return;
 
-  inputs.forEach(el => {
-    let val;
-    if (el.type === "checkbox") val = el.checked ? "Ja" : "Nein";
-    else val = el.value;
-    if (val) answers[answers.length - 1] += ` | ${el.dataset.label}: ${val}`;
+  // build label -> values map
+  const valueMap = {};
+  // handle all input/select/textarea inside form
+  const elements = form.querySelectorAll("input, select, textarea, div");
+  elements.forEach(el => {
+    // if it's a container div (multiple checkboxes), handle its checkboxes
+    if (el.tagName === "DIV") {
+      const checkboxes = el.querySelectorAll("input[type=checkbox]");
+      if (checkboxes.length) {
+        const label = checkboxes[0].dataset.label || ("Mehrfach");
+        const vals = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        if (vals.length) valueMap[label] = (valueMap[label] || []).concat(vals);
+      }
+      return;
+    }
+
+    const label = el.dataset.label || el.id || "Wert";
+    let val = null;
+    if (el.type === "checkbox") {
+      if (el.checked) val = el.value || "Ja";
+    } else if (el.type === "file") {
+      val = (el.files && el.files.length) ? el.files[0].name : "";
+    } else {
+      val = el.value ?? "";
+    }
+    if (val !== "" && val !== null) {
+      // accumulate multiple inputs with same label
+      if (!valueMap[label]) valueMap[label] = [];
+      valueMap[label].push(val);
+    }
   });
 
+  // append to last answer entry
+  const last = answers[answers.length - 1];
+  if (last) {
+    Object.keys(valueMap).forEach(lbl => {
+      last.attribute[lbl] = valueMap[lbl].join(", ");
+    });
+  }
+
+  // hide UI and continue
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
 
@@ -239,7 +346,7 @@ function nextQuestion() {
   showQuestion();
 }
 
-/* ========== ABSCHLUSS ========== */
+/* ======== ABSCHLUSS ======== */
 function finishForm() {
   document.getElementById("question").style.display = "none";
   document.getElementById("done").style.display = "block";
@@ -247,13 +354,21 @@ function finishForm() {
   const params = new URLSearchParams(window.location.search);
   const user = params.get("user");
 
+  // prepare plain text for EmailJS
+  const answerText = answers.map(a => {
+    const attrs = Object.entries(a.attribute || {}).map(([k,v]) => `${k}: ${v}`).join("; ");
+    return `${a.frage}\nAntwort: ${a.antwort}\n${attrs ? "Attribute: " + attrs + "\n" : ""}${a.kommentar ? "Kommentar: " + a.kommentar + "\n": ""}`;
+  }).join("\n---------------------\n");
+
   emailjs.send(SERVICE_ID, TEMPLATE_ID, {
     from_email: user,
-    answers: answers.join("\n")
+    answers: answerText
+  }).catch(() => {
+    // still finish silently
   });
 }
 
-/* ========== INIT ========== */
+/* ======== INIT ======== */
 startForm();
 </script>
 </body>
