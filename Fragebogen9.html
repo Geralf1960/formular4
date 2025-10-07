@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen-9-log>
+<h2>Fragebogen-9-log</h2>
 <div id="question"></div>
 <button onclick="answer('Ja')">Ja</button>
 <button onclick="answer('Nein')">Nein</button>
@@ -57,7 +57,7 @@ async function loadQuestionsFromExcel() {
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json(sheet);
-  console.log("Geladene Fragen:", rows);
+  console.log("Geladene Fragen:", json);
 
   const map = {};
   json.forEach(row => {
