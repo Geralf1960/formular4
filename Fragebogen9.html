@@ -36,7 +36,6 @@
 <div id="done" style="display:none;">
   <h3>Vielen Dank für Ihre Teilnahme!</h3>
 </div>
-
 <script>
 (function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
 const SERVICE_ID = "service_b074ymd";
@@ -47,38 +46,38 @@ const QUESTIONS_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/ma
 
 let questions = [];
 let answers = [];
-let currentNode = null;
+let currentPath = []; // Stack für Baumnavigation
 let uploadLinks = {};
 
-// Fragen laden
 async function loadQuestionsFromExcel() {
   const response = await fetch(QUESTIONS_URL);
   const arrayBuffer = await response.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json(sheet);
-  console.log("Geladene Fragen:", json);
 
   const map = {};
   json.forEach(row => {
     map[row.ID] = {
       id: row.ID,
+      parent: row.ParentID || null,
       text: row.Frage,
       upload: row.Upload && row.Upload.toLowerCase() === "ja",
       attributes: row.Attribute ? row.Attribute.split(";") : [],
+      end: row.Ende && row.Ende.toLowerCase() === "ja",
       sub: []
     };
   });
 
-  const roots = [];
   json.forEach(row => {
-    if (row.ParentID) map[row.ParentID].sub.push(map[row.ID]);
-    else roots.push(map[row.ID]);
+    if (row.ParentID && map[row.ParentID]) {
+      map[row.ParentID].sub.push(map[row.ID]);
+    }
   });
-  questions = roots;
+
+  questions = Object.values(map).filter(q => !q.parent);
 }
 
-// Upload-Excel laden
 async function loadExcel() {
   const response = await fetch(EXCEL_URL);
   const arrayBuffer = await response.arrayBuffer();
@@ -91,7 +90,6 @@ async function loadExcel() {
   });
 }
 
-// Startformular
 async function startForm() {
   await loadExcel();
   await loadQuestionsFromExcel();
@@ -103,32 +101,39 @@ async function startForm() {
     return;
   }
 
-  currentNode = { sub: questions, idx: 0, user: user.toLowerCase() };
+  currentPath = [{ list: questions, idx: 0, user: user.toLowerCase() }];
   showQuestion();
 }
 
-// Frage anzeigen
 function showQuestion() {
   document.getElementById("upload").style.display = "none";
   document.getElementById("attributes").style.display = "none";
 
-  if (!currentNode || currentNode.idx >= currentNode.sub.length) {
+  const node = currentPath[currentPath.length - 1];
+  if (!node || node.idx >= node.list.length) {
+    currentPath.pop();
+    if (currentPath.length > 0) showQuestion();
+    else finishForm();
+    return;
+  }
+
+  const q = node.list[node.idx];
+  document.getElementById("question").innerText = q.text;
+}
+
+function answer(ans) {
+  const node = currentPath[currentPath.length - 1];
+  const q = node.list[node.idx];
+  answers.push(q.text + ": " + ans);
+
+  if (q.end) {
     finishForm();
     return;
   }
 
-  const q = currentNode.sub[currentNode.idx];
-  document.getElementById("question").innerText = q.text;
-}
-
-// Antwort verarbeiten
-function answer(ans) {
-  const q = currentNode.sub[currentNode.idx];
-  answers.push(q.text + ": " + ans);
-
   if (ans === "Ja") {
     if (q.upload) {
-      document.getElementById("upload-link").href = uploadLinks[currentNode.user];
+      document.getElementById("upload-link").href = uploadLinks[node.user];
       document.getElementById("upload").style.display = "block";
     }
 
@@ -137,20 +142,26 @@ function answer(ans) {
       document.getElementById("attributes").style.display = "block";
       return;
     }
+
+    // 🔹 Wenn Unterfragen vorhanden → in den Baum hinabsteigen
+    if (q.sub.length > 0) {
+      currentPath.push({ list: q.sub, idx: 0, user: node.user });
+      showQuestion();
+      return;
+    }
   }
 
-  currentNode.idx++;
+  // 🔹 Wenn keine Unterfragen → weiter
+  node.idx++;
   showQuestion();
 }
 
-// Dynamische Attribute mit Pflichtprüfung
 function renderAttributes(attrDefs) {
   const form = document.getElementById("attrForm");
   form.innerHTML = "";
 
   attrDefs.forEach(def => {
     if (!def.trim()) return;
-
     let [label, type, requiredFlag] = def.split(":");
     label = label.trim();
     type = (type || "text").trim().toLowerCase();
@@ -163,7 +174,6 @@ function renderAttributes(attrDefs) {
     wrapper.appendChild(lbl);
 
     let input;
-
     if (type.startsWith("select(")) {
       input = document.createElement("select");
       const opts = type.substring(7, type.length - 1).split(",");
@@ -192,7 +202,6 @@ function renderAttributes(attrDefs) {
   });
 }
 
-// Weiter-Button
 function nextQuestion() {
   const form = document.getElementById("attrForm");
   const inputs = form.querySelectorAll("input, select");
@@ -206,7 +215,8 @@ function nextQuestion() {
     }
   }
 
-  const q = currentNode.sub[currentNode.idx];
+  const node = currentPath[currentPath.length - 1];
+  const q = node.list[node.idx];
   inputs.forEach(el => {
     let val = el.type === "checkbox" ? (el.checked ? "Ja" : "Nein") : el.value;
     if (val) answers[answers.length - 1] += ` | ${el.dataset.label}: ${val}`;
@@ -215,11 +225,17 @@ function nextQuestion() {
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
 
-  currentNode.idx++;
+  // Wenn Unterfragen vorhanden → reinspringen
+  if (q.sub.length > 0) {
+    currentPath.push({ list: q.sub, idx: 0, user: node.user });
+    showQuestion();
+    return;
+  }
+
+  node.idx++;
   showQuestion();
 }
 
-// Abschluss
 function finishForm() {
   document.getElementById("question").style.display = "none";
   document.getElementById("done").style.display = "block";
