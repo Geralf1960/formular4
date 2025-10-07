@@ -57,6 +57,7 @@ async function loadQuestionsFromExcel() {
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json(sheet);
+  console.log("Geladene Fragen:", rows);
 
   const map = {};
   json.forEach(row => {
@@ -75,7 +76,6 @@ async function loadQuestionsFromExcel() {
     else roots.push(map[row.ID]);
   });
   questions = roots;
-  log questions;
 }
 
 // Upload-Excel laden
