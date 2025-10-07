@@ -9,14 +9,14 @@
     body { font-family: Arial, sans-serif; margin: 20px; }
     #question { font-size: 18px; margin-bottom: 15px; }
     button { margin: 5px; padding: 8px 16px; }
-    textarea, select, input[type=text] { width: 100%; margin: 5px 0; padding: 6px; }
+    textarea, select, input[type=text], input[type=number], input[type=date] { width: 100%; margin: 5px 0; padding: 6px; }
     #upload, #attributes { margin-top: 20px; padding: 10px; border: 1px solid #ccc; display:none; }
     #done { margin-top: 20px; }
   </style>
 </head>
 <body>
 
-<h2>Fragebogen</h2>
+<h2>Digitaler Fragebogen-9</h2>
 <div id="question"></div>
 <button onclick="answer('Ja')">Ja</button>
 <button onclick="answer('Nein')">Nein</button>
@@ -49,7 +49,7 @@ let currentNode = null;
 let stack = [];
 let uploadLinks = {};
 
-// Fragen aus Excel laden
+// Excel mit Fragen laden
 async function loadQuestionsFromExcel() {
   const response = await fetch(QUESTIONS_URL);
   const arrayBuffer = await response.arrayBuffer();
@@ -61,30 +61,35 @@ async function loadQuestionsFromExcel() {
   json.forEach(row => {
     map[row.ID] = {
       id: row.ID,
-      parent: row.ParentID || null,
       text: row.Frage,
-      upload: row.Upload && row.Upload.toLowerCase() === "ja",
-      end: row.Ende && row.Ende.toLowerCase() === "ja",
-      attributes: row.Attribute ? row.Attribute.split(";") : [],
+      upload: row.Upload && row.Upload.toString().toLowerCase() === "true",
+      ende: row.Ende && row.Ende.toString().toLowerCase() === "true",
+      attributes: row.Attribute ? row.Attribute.split(";").map(a => parseAttribute(a)) : [],
       sub: []
     };
   });
 
-  // Hierarchie aufbauen
   const roots = [];
   json.forEach(row => {
     if (row.ParentID) {
-      if (map[row.ParentID]) {
-        map[row.ParentID].sub.push(map[row.ID]);
-      }
+      map[row.ParentID].sub.push(map[row.ID]);
     } else {
       roots.push(map[row.ID]);
     }
   });
+
   questions = roots;
 }
 
-// Upload-Links laden
+// Attribute parsen
+function parseAttribute(def) {
+  let [label, type, status] = def.split(":").map(x => x ? x.trim() : "");
+  if (!type) type = "text";
+  if (!status) status = "optional";
+  return { label, type, required: status.toLowerCase() === "pflicht" };
+}
+
+// Upload-Excel laden
 async function loadExcel() {
   let response = await fetch(EXCEL_URL);
   let arrayBuffer = await response.arrayBuffer();
@@ -114,7 +119,7 @@ async function startForm() {
   showQuestion();
 }
 
-// Anzeige einer Frage
+// Frage anzeigen
 function showQuestion() {
   document.getElementById("upload").style.display = "none";
   document.getElementById("attributes").style.display = "none";
@@ -122,44 +127,40 @@ function showQuestion() {
   if (!currentNode || currentNode.idx >= currentNode.sub.length) {
     if (stack.length > 0) {
       currentNode = stack.pop();
-      currentNode.idx++;
       showQuestion();
-    } else {
-      finishForm();
+      return;
     }
+    finishForm();
     return;
   }
-
   let q = currentNode.sub[currentNode.idx];
   document.getElementById("question").innerText = q.text;
 }
 
-// Antwort auf Frage
+// Antwort verarbeiten
 function answer(ans) {
   let q = currentNode.sub[currentNode.idx];
   answers.push(q.text + ": " + ans);
+
+  if (q.ende && ans === "Ja") {
+    finishForm();
+    return;
+  }
 
   if (ans === "Ja") {
     if (q.upload) {
       document.getElementById("upload-link").href = uploadLinks[currentNode.user];
       document.getElementById("upload").style.display = "block";
     }
-
     if (q.attributes.length > 0) {
       renderAttributes(q.attributes);
       document.getElementById("attributes").style.display = "block";
-      return;
+      return; // warte auf Weiter
     }
-
-    if (q.sub && q.sub.length > 0) {
+    if (q.sub.length > 0) {
       stack.push(currentNode);
       currentNode = { sub: q.sub, idx: 0, user: currentNode.user };
       showQuestion();
-      return;
-    }
-
-    if (q.end) {
-      finishForm();
       return;
     }
   }
@@ -168,48 +169,47 @@ function answer(ans) {
   showQuestion();
 }
 
-// Attribute-Formular
+// Dynamische Attribute rendern
 function renderAttributes(attrDefs) {
   let form = document.getElementById("attrForm");
   form.innerHTML = "";
 
   attrDefs.forEach(def => {
-    if (!def.trim()) return;
-    let [label, type] = def.split(":");
-    if (!type) type = "text";
-
+    if (!def.label) return;
     let wrapper = document.createElement("div");
     wrapper.style.marginBottom = "8px";
     let lbl = document.createElement("label");
-    lbl.innerText = label + ": ";
+    lbl.innerText = def.label + (def.required ? " *" : "") + ": ";
     wrapper.appendChild(lbl);
 
-    if (type.startsWith("select(")) {
-      let select = document.createElement("select");
-      let opts = type.substring(7, type.length - 1).split(",");
-      select.innerHTML = "<option value=''>Bitte wählen</option>";
+    let input;
+    if (def.type.startsWith("dropdown(")) {
+      input = document.createElement("select");
+      let opts = def.type.substring(9, def.type.length - 1).split(",");
+      input.innerHTML = "<option value=''>Bitte wählen...</option>";
       opts.forEach(o => {
         let opt = document.createElement("option");
         opt.value = o.trim();
         opt.innerText = o.trim();
-        select.appendChild(opt);
+        input.appendChild(opt);
       });
-      select.dataset.label = label;
-      select.required = true;
-      wrapper.appendChild(select);
-    } else if (type === "checkbox") {
-      let input = document.createElement("input");
-      input.type = "checkbox";
-      input.dataset.label = label;
-      wrapper.appendChild(input);
+    } else if (def.type === "boolean") {
+      input = document.createElement("select");
+      input.innerHTML = "<option value=''>Bitte wählen...</option><option value='Ja'>Ja</option><option value='Nein'>Nein</option>";
+    } else if (def.type === "date") {
+      input = document.createElement("input");
+      input.type = "date";
+    } else if (def.type === "number") {
+      input = document.createElement("input");
+      input.type = "number";
     } else {
-      let input = document.createElement("input");
+      input = document.createElement("input");
       input.type = "text";
-      input.dataset.label = label;
-      input.placeholder = "Pflichteingabe";
-      input.required = true;
-      wrapper.appendChild(input);
     }
+
+    if (def.required) input.required = true;
+    input.dataset.label = def.label;
+    wrapper.appendChild(input);
     form.appendChild(wrapper);
   });
 }
@@ -217,13 +217,16 @@ function renderAttributes(attrDefs) {
 // Weiter nach Attributen
 function nextQuestion() {
   let form = document.getElementById("attrForm");
-  if (!form.reportValidity()) return;
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
 
   let inputs = form.querySelectorAll("input, select");
   let q = currentNode.sub[currentNode.idx];
 
   inputs.forEach(el => {
-    let val = (el.type === "checkbox") ? (el.checked ? "Ja" : "Nein") : el.value;
+    let val = el.value || (el.type === "checkbox" ? (el.checked ? "Ja" : "Nein") : "");
     if (val) {
       answers[answers.length - 1] += ` | ${el.dataset.label}: ${val}`;
     }
@@ -232,22 +235,18 @@ function nextQuestion() {
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
 
-  if (q.end) {
-    finishForm();
+  if (q.sub.length > 0) {
+    stack.push(currentNode);
+    currentNode = { sub: q.sub, idx: 0, user: currentNode.user };
+    showQuestion();
     return;
   }
 
-  if (q.sub && q.sub.length > 0) {
-    stack.push(currentNode);
-    currentNode = { sub: q.sub, idx: 0, user: currentNode.user };
-  } else {
-    currentNode.idx++;
-  }
-
+  currentNode.idx++;
   showQuestion();
 }
 
-// Ende
+// Abschluss
 function finishForm() {
   document.getElementById("question").style.display = "none";
   document.getElementById("done").style.display = "block";
@@ -265,4 +264,3 @@ startForm();
 </script>
 </body>
 </html>
-
