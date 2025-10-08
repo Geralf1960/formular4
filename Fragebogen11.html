@@ -17,7 +17,7 @@
 </head>
 <body>
 
-<h2>Digitaler Fragebogen-11</h2>
+<h2>Digitaler Fragebogen</h2>
 <div id="question"></div>
 <button onclick="answer('Ja')">Ja</button>
 <button onclick="answer('Nein')">Nein</button>
@@ -217,11 +217,6 @@ function nextAfterAttributes() {
   if (missing) return alert("Bitte füllen Sie alle Pflichtfelder aus!");
 
   // Textfelder & Selects
-  // --- Pflichtfeldprüfung und Attributwerte sammeln ---
-  let values = [];
-  let checkboxGroups = {};
-
- // Textfelder & Selects
   form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
     if (el.value) values.push(`${el.dataset.label}: ${el.value}`);
   });
@@ -237,7 +232,7 @@ function nextAfterAttributes() {
 
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
-  
+
   handleAnswer(currentQuestion.id, true);
 }
 
