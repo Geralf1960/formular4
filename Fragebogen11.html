@@ -221,58 +221,22 @@ function nextAfterAttributes() {
   let values = [];
   let checkboxGroups = {};
 
-  // 1️⃣ Checkbox-Gruppen erfassen
-  form.querySelectorAll('input[type="checkbox"]').forEach(el => {
-  const group = el.dataset.label;
-  if (!checkboxGroups[group]) checkboxGroups[group] = [];
-  checkboxGroups[group].push(el);
-  });
-
-  // 2️⃣ Pflichtfeldprüfung für Checkbox-Gruppen
-  for (const [label, checkboxes] of Object.entries(checkboxGroups)) {
-    const isRequired = checkboxes.some(cb => cb.required);
-    if (isRequired && !checkboxes.some(cb => cb.checked)) {
-    alert(`Bitte wählen Sie mindestens eine Option bei "${label}" aus.`);
-    return; // stoppe Verarbeitung
-    }
-  }
-
-  // 3️⃣ Pflichtfeldprüfung für alle anderen Eingabefelder (Text, Date, Number, Dropdown)
-  let allValid = true;
-  form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
-    if (el.hasAttribute("required") && !el.value) {
-      alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
-      el.focus();
-      allValid = false;
-      return false;
-    }
-  });
-  if (!allValid) return; // Abbruch falls ein Pflichtfeld leer ist
-
-  // 4️⃣ Werte sammeln – Textfelder, Zahlen, Datum, Dropdowns
+ // Textfelder & Selects
   form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
     if (el.value) values.push(`${el.dataset.label}: ${el.value}`);
   });
 
-  // 5️⃣ Werte sammeln – Checkbox-Gruppen
-  let checkedGroups = {};
-  form.querySelectorAll("input[type=checkbox]:checked").forEach(el => {
-    if (!checkedGroups[el.dataset.label]) checkedGroups[el.dataset.label] = [];
-    checkedGroups[el.dataset.label].push(el.value);
+  // Checkboxen
+  form.querySelectorAll("input[type=checkbox]").forEach(el => {
+    values.push(`${el.dataset.label}: ${el.checked ? "Ja" : "Nein"}`);
   });
-  Object.entries(checkedGroups).forEach(([label, vals]) => {
-    values.push(`${label}: ${vals.join(", ")}`);
-  });
-  
-  // 6️⃣ Ergebnisse an letzte Antwort anhängen
+
   if (values.length > 0) {
     answers[answers.length - 1] += " | " + values.join(" | ");
   }
-  
-  // 7️⃣ Upload- und Attributbereich ausblenden
+
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
-
   handleAnswer(currentQuestion.id, true);
 }
 
