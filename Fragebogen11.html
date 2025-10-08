@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamischer Fragebogen</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #question { font-size: 18px; margin-bottom: 15px; }
+    button { margin: 5px; padding: 8px 16px; }
+    textarea, select, input[type=text], input[type=number], input[type=date] { width: 100%; margin: 5px 0; padding: 6px; }
+    #upload, #attributes { margin-top: 20px; padding: 10px; border: 1px solid #ccc; display:none; }
+    #done { margin-top: 20px; }
+    .required label::after { content: " *"; color: red; }
+  </style>
+</head>
+<body>
+
+<h2>Digitaler Fragebogen</h2>
+<div id="question"></div>
+<button onclick="answer('Ja')">Ja</button>
+<button onclick="answer('Nein')">Nein</button>
+
+<div id="upload">
+  <p><a id="upload-link" href="#" target="_blank">→ Datei hier hochladen</a></p>
+</div>
+
+<div id="attributes">
+  <h4>Zusätzliche Angaben</h4>
+  <form id="attrForm"></form>
+  <button onclick="nextAfterAttributes()">Weiter</button>
+</div>
+
+<div id="done" style="display:none;">
+  <h3>Vielen Dank für Ihre Teilnahme!</h3>
+</div>
+
+<script>
+(function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
+
+const SERVICE_ID = "service_b074ymd";
+const TEMPLATE_ID = "template_omwd93k";
+
+const QUESTIONS_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragen.xlsx";
+const UPLOAD_URL   = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-2.xlsx";
+
+let questions = [];
+let uploadLinks = {};
+let answers = [];
+let currentQuestion = null;
+let userEmail = "";
+
+// Excel: Upload-Links laden
+async function loadUploadLinks() {
+  const response = await fetch(UPLOAD_URL);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+  json.slice(1).forEach(row => {
+    if (row[0] && row[1]) {
+      uploadLinks[row[0].trim().toLowerCase()] = row[1].trim();
+    }
+  });
+}
+
+// Excel: Fragen laden
+async function loadQuestions() {
+  const response = await fetch(QUESTIONS_URL);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet);
+
+  const map = {};
+  json.forEach(row => {
+    map[row.ID] = {
+      id: row.ID,
+      parent: row.ParentID || null,
+      text: row.Frage,
+      upload: row.Upload && row.Upload.toString().toLowerCase() === "ja",
+      ende: row.Ende && row.Ende.toString().toLowerCase() === "ja",
+      attributes: row.Attribute ? row.Attribute.split(";") : [],
+      sub: []
+    };
+  });
+
+  const roots = [];
+  json.forEach(row => {
+    if (row.ParentID && map[row.ParentID]) {
+      map[row.ParentID].sub.push(map[row.ID]);
+    } else if (!row.ParentID) {
+      roots.push(map[row.ID]);
+    }
+  });
+
+  questions = roots;
+}
+
+// Start
+async function startForm() {
+  await loadUploadLinks();
+  await loadQuestions();
+
+  const params = new URLSearchParams(window.location.search);
+  userEmail = params.get("user");
+  if (!userEmail || !uploadLinks[userEmail.toLowerCase()]) {
+    document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
+    return;
+  }
+
+  currentQuestion = questions[0];
+  showQuestion(currentQuestion);
+}
+
+// Frage anzeigen
+function showQuestion(q) {
+  document.getElementById("upload").style.display = "none";
+  document.getElementById("attributes").style.display = "none";
+
+  if (!q) {
+    finishForm();
+    return;
+  }
+
+  document.getElementById("question").innerText = q.text;
+}
+
+// Antwort-Button
+function answer(ans) {
+  let q = currentQuestion;
+  answers.push(`${q.text}: ${ans}`);
+
+  if (ans === "Ja") {
+    if (q.upload) {
+      document.getElementById("upload-link").href = uploadLinks[userEmail.toLowerCase()];
+      document.getElementById("upload").style.display = "block";
+    }
+
+    if (q.attributes && q.attributes.length > 0) {
+      renderAttributes(q.attributes);
+      document.getElementById("attributes").style.display = "block";
+      return; // warte auf "Weiter"
+    }
+  }
+
+  handleAnswer(q.id, ans === "Ja");
+}
+
+// Attribute rendern
+function renderAttributes(attrDefs) {
+  const form = document.getElementById("attrForm");
+  form.innerHTML = "";
+
+  attrDefs.forEach(def => {
+    if (!def.trim()) return;
+    let [label, type] = def.split(":");
+    let required = false;
+
+    if (label.includes("*")) {
+      label = label.replace("*", "").trim();
+      required = true;
+    }
+    if (!type) type = "text";
+
+    const wrapper = document.createElement("div");
+    if (required) wrapper.classList.add("required");
+    const lbl = document.createElement("label");
+    lbl.innerText = label + ": ";
+    wrapper.appendChild(lbl);
+
+    let input;
+    if (type.startsWith("select(")) {
+      input = document.createElement("select");
+      const opts = type.substring(7, type.length - 1).split(",");
+      input.innerHTML = "<option value=''>Bitte wählen...</option>";
+      opts.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o.trim();
+        opt.innerText = o.trim();
+        input.appendChild(opt);
+      });
+    } else if (type === "checkbox") {
+      input = document.createElement("input");
+      input.type = "checkbox";
+    } else {
+      input = document.createElement("input");
+      input.type = type;
+    }
+
+    input.dataset.label = label;
+    input.required = required;
+    wrapper.appendChild(input);
+    form.appendChild(wrapper);
+  });
+}
+
+// Nach Attributeingabe „Weiter“
+function nextAfterAttributes() {
+  const form = document.getElementById("attrForm");
+  const inputs = form.querySelectorAll("input, select");
+  let missing = false;
+  let values = [];
+
+  // Pflichtfeldprüfung
+  inputs.forEach(el => {
+    if (el.required && ((el.type === "checkbox" && !el.checked) || (!el.type === "checkbox" && !el.value))) {
+      el.style.border = "2px solid red";
+      missing = true;
+    } else {
+      el.style.border = "";
+    }
+  });
+
+  if (missing) return alert("Bitte füllen Sie alle Pflichtfelder aus!");
+
+  // Textfelder & Selects
+  form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
+    if (el.value) values.push(`${el.dataset.label}: ${el.value}`);
+  });
+
+  // Checkboxen
+  form.querySelectorAll("input[type=checkbox]").forEach(el => {
+    values.push(`${el.dataset.label}: ${el.checked ? "Ja" : "Nein"}`);
+  });
+
+  if (values.length > 0) {
+    answers[answers.length - 1] += " | " + values.join(" | ");
+  }
+
+  document.getElementById("attributes").style.display = "none";
+  document.getElementById("upload").style.display = "none";
+
+  handleAnswer(currentQuestion.id, true);
+}
+
+// Nächste Frage bestimmen
+function handleAnswer(currentId, answerYes) {
+  const next = findNextQuestion(currentId, answerYes);
+  if (!next) {
+    finishForm();
+  } else {
+    currentQuestion = next;
+    showQuestion(next);
+  }
+}
+
+// Findet die nächste Frage im Baum
+function findNextQuestion(id, answerYes) {
+  function search(nodes, parentFound = false) {
+    for (let i = 0; i < nodes.length; i++) {
+      const q = nodes[i];
+      if (q.id === id) {
+        if (q.ende) return null;
+        return answerYes && q.sub.length > 0
+          ? q.sub[0]
+          : nodes[i + 1] || findSibling(questions, q.parent);
+      }
+      const result = search(q.sub, parentFound);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  function findSibling(nodes, parentId) {
+    for (let i = 0; i < nodes.length; i++) {
+      const q = nodes[i];
+      if (q.id === parentId) {
+        return nodes[i + 1] || null;
+      }
+      const result = findSibling(q.sub, parentId);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  return search(questions);
+}
+
+// Abschluss
+function finishForm() {
+  document.getElementById("question").style.display = "none";
+  document.getElementById("done").style.display = "block";
+
+  emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    from_email: userEmail,
+    answers: answers.join("\n")
+  });
+}
+
+startForm();
+</script>
+</body>
+</html>
