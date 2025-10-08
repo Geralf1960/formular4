@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamischer Fragebogen</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+    #question { font-size: 1.2em; margin-bottom: 15px; }
+    #attributes { margin-top: 15px; }
+    #upload { margin-top: 15px; }
+    #nextBtn { margin-top: 20px; padding: 10px 20px; }
+    .attribute { margin-bottom: 10px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <h2>Dynamischer Fragebogen-12</h2>
+  <div id="questionnaire">
+    <div id="question"></div>
+    <div id="buttons">
+      <button onclick="handleAnswer('ja')">Ja</button>
+      <button onclick="handleAnswer('nein')">Nein</button>
+    </div>
+
+    <form id="attributeForm" style="display:none;">
+      <div id="attributes"></div>
+      <div id="upload" style="display:none;">
+        <label>Datei-Upload:</label>
+        <input type="file" id="fileUpload">
+      </div>
+      <button id="nextBtn" type="button" onclick="submitAttributes()">Weiter</button>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    let questions = [];
+    let currentQuestion = null;
+    let answers = [];
+
+    async function loadExcel() {
+      const response = await fetch("Fragen.xlsx"); // <-- gleiche Datei im Ordner
+      const data = await response.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      questions = XLSX.utils.sheet_to_json(sheet);
+
+      startQuestionnaire();
+    }
+
+    function startQuestionnaire() {
+      currentQuestion = questions.find(q => !q.ParentID);
+      showQuestion(currentQuestion);
+    }
+
+    function showQuestion(q) {
+      if (!q) {
+        document.getElementById("questionnaire").innerHTML = "<h3>Fragebogen abgeschlossen!</h3>";
+        console.log("Antworten:", answers);
+        return;
+      }
+
+      document.getElementById("attributeForm").style.display = "none";
+      document.getElementById("upload").style.display = "none";
+
+      document.getElementById("question").innerText = q.Frage;
+    }
+
+    function handleAnswer(answer) {
+      answers.push(qLabel(currentQuestion) + ": " + answer);
+
+      if (answer === "ja" && currentQuestion.Attribute) {
+        showAttributes(currentQuestion);
+      } else if (answer === "ja" && currentQuestion.Upload === "ja") {
+        document.getElementById("attributeForm").style.display = "block";
+        document.getElementById("upload").style.display = "block";
+      } else {
+        nextQuestion();
+      }
+    }
+
+    function showAttributes(q) {
+      const container = document.getElementById("attributes");
+      container.innerHTML = "";
+      document.getElementById("attributeForm").style.display = "block";
+
+      const attributes = q.Attribute.split(";").map(a => a.trim());
+      attributes.forEach(attr => {
+        const [label, typeRaw] = attr.split(":").map(a => a.trim());
+        if (!label) return;
+
+        let type = (typeRaw || "text").replace("*", "");
+        const isRequired = (typeRaw || "").includes("*");
+
+        const div = document.createElement("div");
+        div.className = "attribute";
+
+        const lbl = document.createElement("label");
+        lbl.textContent = label + (isRequired ? " *" : "");
+        div.appendChild(lbl);
+
+        let input;
+
+        if (type === "select") {
+          input = document.createElement("select");
+          ["Bitte wählen", "Option A", "Option B", "Option C"].forEach(optText => {
+            const opt = document.createElement("option");
+            opt.value = optText === "Bitte wählen" ? "" : optText;
+            opt.textContent = optText;
+            input.appendChild(opt);
+          });
+        } else if (type === "checkbox") {
+          const opts = ["Option 1", "Option 2", "Option 3"];
+          opts.forEach(o => {
+            const cDiv = document.createElement("div");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.value = o;
+            cb.dataset.label = label;
+            if (isRequired) cb.required = true;
+            const cLbl = document.createElement("label");
+            cLbl.textContent = o;
+            cDiv.appendChild(cb);
+            cDiv.appendChild(cLbl);
+            div.appendChild(cDiv);
+          });
+          container.appendChild(div);
+          return;
+        } else {
+          input = document.createElement("input");
+          input.type = type;
+        }
+
+        input.dataset.label = label;
+        if (isRequired) input.required = true;
+        div.appendChild(input);
+        container.appendChild(div);
+      });
+
+      if (q.Upload === "ja") document.getElementById("upload").style.display = "block";
+    }
+
+    function submitAttributes() {
+      const form = document.getElementById("attributeForm");
+
+      // --- Pflichtfeldprüfung und Attributwerte sammeln ---
+      let values = [];
+      let checkboxGroups = {};
+
+      // 1️⃣ Checkbox-Gruppen erfassen
+      form.querySelectorAll('input[type="checkbox"]').forEach(el => {
+        const group = el.dataset.label;
+        if (!checkboxGroups[group]) checkboxGroups[group] = [];
+        checkboxGroups[group].push(el);
+      });
+
+      // 2️⃣ Pflichtfeldprüfung für Checkbox-Gruppen
+      for (const [label, checkboxes] of Object.entries(checkboxGroups)) {
+        const isRequired = checkboxes.some(cb => cb.required);
+        if (isRequired && !checkboxes.some(cb => cb.checked)) {
+          alert(`Bitte wählen Sie mindestens eine Option bei "${label}" aus.`);
+          return;
+        }
+      }
+
+      // 3️⃣ Pflichtfeldprüfung für alle anderen Eingabefelder
+      let allValid = true;
+      form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
+        if (el.hasAttribute("required") && !el.value) {
+          alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
+          el.focus();
+          allValid = false;
+          return false;
+        }
+      });
+      if (!allValid) return;
+
+      // 4️⃣ Werte sammeln
+      form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
+        if (el.value) values.push(`${el.dataset.label}: ${el.value}`);
+      });
+
+      let checkedGroups = {};
+      form.querySelectorAll("input[type=checkbox]:checked").forEach(el => {
+        if (!checkedGroups[el.dataset.label]) checkedGroups[el.dataset.label] = [];
+        checkedGroups[el.dataset.label].push(el.value);
+      });
+      Object.entries(checkedGroups).forEach(([label, vals]) => {
+        values.push(`${label}: ${vals.join(", ")}`);
+      });
+
+      if (values.length > 0) {
+        answers[answers.length - 1] += " | " + values.join(" | ");
+      }
+
+      document.getElementById("attributes").style.display = "none";
+      document.getElementById("upload").style.display = "none";
+      document.getElementById("attributeForm").style.display = "none";
+
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      if (currentQuestion.Ende && currentQuestion.Ende.toLowerCase() === "ja") {
+        document.getElementById("questionnaire").innerHTML = "<h3>Fragebogen beendet.</h3>";
+        console.log("Antworten:", answers);
+        return;
+      }
+
+      let next = questions.find(q => q.ParentID == currentQuestion.ID);
+      if (!next) {
+        let currentIndex = questions.findIndex(q => q.ID == currentQuestion.ID);
+        next = questions[currentIndex + 1];
+      }
+      currentQuestion = next;
+      showQuestion(next);
+    }
+
+    function qLabel(q) { return q ? q.Frage || "?" : ""; }
+
+    loadExcel();
+  </script>
+
+</body>
+</html>
