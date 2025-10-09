@@ -68,17 +68,24 @@
     }
 
     function handleAnswer(answer) {
-      answers.push(qLabel(currentQuestion) + ": " + answer);
-
-      if (answer === "ja" && currentQuestion.Attribute) {
-        showAttributes(currentQuestion);
-      } else if (answer === "ja" && currentQuestion.Upload === "ja") {
-        document.getElementById("attributeForm").style.display = "block";
-        document.getElementById("upload").style.display = "block";
-      } else {
-        nextQuestion();
-      }
+    answers.push(qLabel(currentQuestion) + ": " + answer);
+  
+    // Wenn "Ja" -> zuerst Attribute anzeigen, falls vorhanden
+    if (answer === "ja" && currentQuestion.Attribute) {
+      showAttributes(currentQuestion);
+      return; // => wichtig, Formular zuerst anzeigen
     }
+  
+    // Wenn Upload gefordert, anzeigen
+    if (answer === "ja" && currentQuestion.Upload === "ja") {
+      document.getElementById("attributeForm").style.display = "block";
+      document.getElementById("upload").style.display = "block";
+      return;
+    }
+  
+    // Wenn keine Attribute oder Upload -> direkt weiter
+    nextQuestion();
+  }
 
     function showAttributes(q) {
       const container = document.getElementById("attributes");
