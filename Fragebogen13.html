@@ -148,6 +148,7 @@ function showQuestion() {
 function handleAnswer(answer) {
   const q = current.list[current.idx];
   answers.push(q.frage + ": " + answer);
+  console.log(q, 
 
   // Ja -> ggf. Attribute oder Upload
   if (answer === "ja") {
@@ -162,7 +163,8 @@ function handleAnswer(answer) {
   }
 
   // Wenn Unterfragen vorhanden, auf Stack und rein
-  if (answer === "ja" && q.sub.length > 0) {
+  // if (answer === "ja" && q.sub.length > 0) {
+  if (q.sub.length > 0) {
     stack.push({ list: current.list, idx: current.idx + 1, user: current.user });
     current = { list: q.sub, idx: 0, user: current.user };
     showQuestion();
