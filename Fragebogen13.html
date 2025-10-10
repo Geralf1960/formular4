@@ -148,13 +148,13 @@ function showQuestion() {
 function handleAnswer(answer) {
   const q = current.list[current.idx];
   answers.push(q.frage + ": " + answer);
-  console.log(q, 
+  
 
   // Ja -> ggf. Attribute oder Upload
   if (answer === "ja") {
     if (q.attributes.length > 0) {
       showAttributes(q);
-      return;
+   //   return;
     }
     if (q.upload) {
       document.getElementById("upload-link").href = uploadLinks[current.user];
