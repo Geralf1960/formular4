@@ -169,13 +169,18 @@ function handleAnswer(answer) {
     return;
   }
   // Wenn Unterfragen vorhanden, auf Stack und rein
-  // if (answer === "ja" && q.sub.length > 0) {
-  if (q.sub.length > 0) {
-    stack.push({ list: current.list, idx: current.idx + 1, user: current.user });
-    current = { list: q.sub, idx: 0, user: current.user };
-    showQuestion();
-    return;
-  }
+  if (answer === "ja")  {
+    if (q.sub.length > 0) {
+      stack.push({ list: current.list, idx: current.idx + 1, user: current.user });
+      current = { list: q.sub, idx: 0, user: current.user };
+      showQuestion();
+      return;
+    } 
+      return;
+  } else {   
+      return;
+  }  
+  
 
 
 
