@@ -114,6 +114,7 @@ async function startForm() {
   const user = (params.get("user") || "").toLowerCase();
   console.log(user);
   console.log(uploadLinks);
+  console.log(questions);
 
   if (!uploadLinks[user]) {
     document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
