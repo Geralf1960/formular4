@@ -233,7 +233,7 @@ function submitAttributes() {
   for (let el of inputs) {
     const isReq = el.dataset.required === "true";
     const val = el.type === "checkbox" ? (el.checked ? "Ja" : "Nein") : el.value;
-    if (isReq && !val) {
+    if (isReq || !val) {
       alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
       return;
     }
