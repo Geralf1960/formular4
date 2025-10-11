@@ -212,8 +212,7 @@ function showAttributes(q) {
       input.value = "Ja";
     } else if (attr.type === "info") {
       input = document.createElement("p");
-      input.type = "info";
-      input.value = "";
+      input.innerHTML = label;
     } else {
       input = document.createElement("input");
       input.type = attr.type === "date" ? "date" :
