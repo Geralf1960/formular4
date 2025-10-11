@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 13-k-5</h2>
+<h2>Fragebogen 13-k-6</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -234,11 +234,12 @@ function submitAttributes() {
     const isReq = el.dataset.required === "true";
     const val = el.type === "checkbox" ? (el.checked ? "Ja" : "Nein") : el.value;
     if (isReq && !val) {
-      console.log(val)
-      alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
+         alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
       return;
     }
     if (val) values.push(`${el.dataset.label}: ${val}`);
+    console.log(el.dataset.label,val)
+    
   }
 
   if (values.length > 0)
