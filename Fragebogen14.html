@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-2</h2>
+<h2>Fragebogen 14-k-3</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -191,7 +191,7 @@ function renderAttributes(q) {
   let form = document.getElementById("attrForm");
   form.innerHTML = "";
 
-  q.forEach(def => {
+  q.attributes.forEach(def => {
     if (!def.trim()) return;
 
     // Format: Bezeichnung:Typ[:Pflicht]
