@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-1</h2>
+<h2>Fragebogen 14-k-2</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -159,7 +159,7 @@ function handleAnswer(answer) {
     }
     if (q.attributes.length > 0) {
       // showAttributes(q);
-      renderAttributes(attrDefs);
+      renderAttributes(q);
       return;
     }
    
@@ -187,11 +187,11 @@ function handleAnswer(answer) {
 }
 
 // ===== Attribute anzeigen =====
-function renderAttributes(attrDefs) {
+function renderAttributes(q) {
   let form = document.getElementById("attrForm");
   form.innerHTML = "";
 
-  attrDefs.forEach(def => {
+  q.forEach(def => {
     if (!def.trim()) return;
 
     // Format: Bezeichnung:Typ[:Pflicht]
