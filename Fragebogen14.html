@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-5</h2>
+<h2>Fragebogen 14-k-6</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -60,6 +60,45 @@ async function loadExcel(url) {
   return XLSX.utils.sheet_to_json(sheet);
 }
 
+// ===== Fragenstruktur aus Excel =====
+async function loadQuestionsFromExcel() {
+  const response = await fetch(QUESTIONS_URL);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet);
+
+  const map = {};
+  json.forEach(row => {
+    let attrRaw = row.Attribute || "";
+    // String in Array umwandeln
+    let attrs = typeof attrRaw === "string"
+      ? attrRaw.split(";").map(a => a.trim()).filter(a => a.length > 0)
+      : [];
+
+    map[row.ID] = {
+      id: row.ID,
+      text: row.Frage,
+      upload: row.Upload && row.Upload.toString().toLowerCase() === "ja",
+      end: row.Ende && row.Ende.toString().toLowerCase() === "ja",
+      attributes: attrs,
+      sub: []
+    };
+  });
+
+  const roots = [];
+  json.forEach(row => {
+    if (row.ParentID) {
+      if (map[row.ParentID]) {
+        map[row.ParentID].sub.push(map[row.ID]);
+      }
+    } else {
+      roots.push(map[row.ID]);
+    }
+  });
+
+  questions = roots;
+}
 // ===== Fragenstruktur aus Excel =====
 async function loadQuestions() {
   const data = await loadExcel(QUESTIONS_URL);
@@ -108,7 +147,8 @@ async function loadUploadLinks() {
 // ===== Start =====
 async function startForm() {
   await loadUploadLinks();
-  await loadQuestions();
+  // await loadQuestions();
+  await loadQuestionsFromExcel();
 
   const params = new URLSearchParams(window.location.search);
   const user = (params.get("user") || "").toLowerCase();
