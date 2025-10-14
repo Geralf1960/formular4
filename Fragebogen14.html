@@ -158,7 +158,8 @@ function handleAnswer(answer) {
       document.getElementById("upload").style.display = "block";
     }
     if (q.attributes.length > 0) {
-      showAttributes(q);
+      // showAttributes(q);
+      renderAttributes(attrDefs);
       return;
     }
    
@@ -186,6 +187,108 @@ function handleAnswer(answer) {
 }
 
 // ===== Attribute anzeigen =====
+function renderAttributes(attrDefs) {
+  let form = document.getElementById("attrForm");
+  form.innerHTML = "";
+
+  attrDefs.forEach(def => {
+    if (!def.trim()) return;
+
+    // Format: Bezeichnung:Typ[:Pflicht]
+    let [label, type = "text", requiredFlag = "optional"] = def.split(":").map(s => s.trim());
+    const isRequired = requiredFlag.toLowerCase() === "pflicht";
+
+    let wrapper = document.createElement("div");
+    wrapper.style.marginBottom = "8px";
+
+    // ----- Info-Feld -----
+    if (type === "info") {
+      let p = document.createElement("p");
+      p.innerText = label;
+      wrapper.appendChild(p);
+      form.appendChild(wrapper);
+      return;
+    }
+
+    // ----- Hidden-Feld -----
+    if (type === "hidden") {
+      let input = document.createElement("input");
+      input.type = "hidden";
+      input.value = label.includes("=") ? label.split("=")[1].trim() : label;
+      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
+      input.dataset.required = isRequired;
+      form.appendChild(input);
+      return;
+    }
+
+    // ----- Label für sichtbare Felder -----
+    let lbl = document.createElement("label");
+    lbl.innerText = label + (isRequired ? " *" : "") + ": ";
+    wrapper.appendChild(lbl);
+
+    // ----- Auswahlfelder -----
+    if (type.startsWith("select(")) {
+      let select = document.createElement("select");
+      let opts = type.substring(7, type.length - 1).split(",");
+      select.innerHTML = "<option value=''>Bitte wählen...</option>";
+      opts.forEach(o => {
+        let opt = document.createElement("option");
+        opt.value = o.trim();
+        opt.innerText = o.trim();
+        select.appendChild(opt);
+      });
+      select.dataset.label = label;
+      select.dataset.required = isRequired;
+      wrapper.appendChild(select);
+
+    // ----- Checkbox-Gruppen -----
+    } else if (type.startsWith("checkbox(")) {
+      let opts = type.substring(9, type.length - 1).split(",");
+      opts.forEach(o => {
+        let div = document.createElement("div");
+        let chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.value = o.trim();
+        chk.dataset.label = label;
+        chk.dataset.required = isRequired;
+        let l = document.createElement("span");
+        l.innerText = " " + o.trim();
+        div.appendChild(chk);
+        div.appendChild(l);
+        wrapper.appendChild(div);
+      });
+
+    // ----- Readonly-Feld -----
+    } else if (type === "readonly") {
+      let input = document.createElement("input");
+      input.type = "text";
+      input.value = label.includes("=") ? label.split("=")[1].trim() : "";
+      input.readOnly = true;
+      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
+      wrapper.appendChild(input);
+
+    // ----- Datumsfeld -----
+    } else if (type === "date") {
+      let input = document.createElement("input");
+      input.type = "date";
+      input.dataset.label = label;
+      input.dataset.required = isRequired;
+      wrapper.appendChild(input);
+
+    // ----- Standard Textfeld -----
+    } else {
+      let input = document.createElement("input");
+      input.type = "text";
+      input.dataset.label = label;
+      input.dataset.required = isRequired;
+      input.placeholder = "Eingabe...";
+      wrapper.appendChild(input);
+    }
+
+    form.appendChild(wrapper);
+  });
+}
+  
 function showAttributes(q) {
   const form = document.getElementById("attrForm");
   form.innerHTML = "";
@@ -212,7 +315,7 @@ function showAttributes(q) {
       input.value = "Ja";
     } else if (attr.type === "info") {
       input = document.createElement("p");
-      input.innerHTML = label;
+      input.innerText = label;
     } else {
       input = document.createElement("input");
       input.type = attr.type === "date" ? "date" :
