@@ -78,6 +78,7 @@ async function loadQuestionsFromExcel() {
 
     map[row.ID] = {
       id: row.ID,
+      parent: row.ParentID,
       text: row.Frage,
       upload: row.Upload && row.Upload.toString().toLowerCase() === "ja",
       end: row.Ende && row.Ende.toString().toLowerCase() === "ja",
