@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-11</h2>
+<h2>Fragebogen 14-k-12</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -111,11 +111,11 @@ async function loadQuestions() {
       frage: row.Frage,
       upload: (row.Upload || "").toLowerCase() === "ja",
       ende: (row.Ende || "").toLowerCase() === "ja",
-      // attributes: parseAttributes(row.Attribute),
-      attributes: typeof row.Attribute === "string"
-        ? row.Attribute.split(";").map(a => a.trim())
-        : [],
-      sub: []
+      attributes: parseAttributes(row.Attribute),
+      // attributes: typeof row.Attribute === "string"
+      //  ? row.Attribute.split(";").map(a => a.trim())
+      //  : [],
+      // sub: []
     };
   });
   data.forEach(row => {
