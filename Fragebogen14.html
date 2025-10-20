@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-10</h2>
+<h2>Fragebogen 14-k-11</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -151,8 +151,8 @@ async function loadUploadLinks() {
 // ===== Start =====
 async function startForm() {
   await loadUploadLinks();
-  // await loadQuestions();
-  await loadQuestionsFromExcel();
+  await loadQuestions();
+  // await loadQuestionsFromExcel();
 
   const params = new URLSearchParams(window.location.search);
   const user = (params.get("user") || "").toLowerCase();
@@ -203,8 +203,8 @@ function handleAnswer(answer) {
       document.getElementById("upload").style.display = "block";
     }
     if (q.attributes.length > 0) {
-      // showAttributes(q);
-      renderAttributes(q);
+      showAttributes(q);
+      // renderAttributes(q);
       return;
     }
    
@@ -362,8 +362,8 @@ function showAttributes(q) {
       input.value = "Ja";
     } else if (attr.type === "info") {
       input = document.createElement("p");
-      input.type = "text";
-      input.value = "";
+      // input.type = "text";
+      // input.value = "";
       input.innerText = label;
     } else {
       input = document.createElement("input");
