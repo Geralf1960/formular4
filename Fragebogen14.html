@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-9</h2>
+<h2>Fragebogen 14-k-10</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -233,6 +233,7 @@ function handleAnswer(answer) {
 
 // ===== Attribute anzeigen =====
 function renderAttributes(q) {
+  console.log("Inhlt von q: ")
   console.log(q)
   let form = document.getElementById("attrForm");
   form.innerHTML = "";
