@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-19</h2>
+<h2>Fragebogen 14-k-20</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -361,7 +361,7 @@ function showAttributes(q) {
       input.type = "checkbox";
       input.value = "Ja";
     } else if (attr.type === "info") {
-      input = document.createElement("<p>");
+      input = document.createElement("p");
       // input.type = "text";
       // input.value = "";
       input.innerText = label;
