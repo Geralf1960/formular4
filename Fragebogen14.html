@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-12</h2>
+<h2>Fragebogen 14-k-13</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -365,6 +365,9 @@ function showAttributes(q) {
       // input.type = "text";
       // input.value = "";
       input.innerText = label;
+      wrapper.appendChild(p);
+      form.appendChild(wrapper);
+      return;
     } else {
       input = document.createElement("input");
       input.type = attr.type === "date" ? "date" :
