@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-22</h2>
+<h2>Fragebogen 14-k-23</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -362,7 +362,7 @@ function showAttributes(q) {
       input.value = "Ja";
     } else if (attr.type === "info") {
       input = document.createElement("p");
-      input.innerText = label;
+      //input.innerText = label;
       //console.log("info");
       //console.log(form);
       wrap.appendChild(input);
