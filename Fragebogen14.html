@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>Fragebogen 14-k-23</h2>
+<h2>Fragebogen 14-k-24</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -156,9 +156,9 @@ async function startForm() {
 
   const params = new URLSearchParams(window.location.search);
   const user = (params.get("user") || "").toLowerCase();
-  console.log(user);
-  console.log(uploadLinks);
-  console.log(questions);
+  // console.log(user);
+  // console.log(uploadLinks);
+  // console.log(questions);
 
   if (!uploadLinks[user]) {
     document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
@@ -166,8 +166,8 @@ async function startForm() {
   }
 
   current = { list: questions, idx: 0, user };
-  console.log("Inhalt von current: "); 
-  console.log(current);
+  // console.log("Inhalt von current: "); 
+  // console.log(current);
   showQuestion();
 }
 
