@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen Demo</h2>
+<h2>rcon Fragebogen Demo - Test Ende</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -210,8 +210,9 @@ function handleAnswer(answer) {
    
   }
   // Ende bei Kennzeichen
-  if (q.ende && answer === "ja") {
-    finishForm();
+  // if (q.ende && answer === "ja") {
+  if (q.ende === "ja") {   
+        finishForm();
     return;
   }
   // Wenn Unterfragen vorhanden, auf Stack und rein
