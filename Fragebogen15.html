@@ -213,7 +213,8 @@ function handleAnswer(answer) {
   }
   // Ende bei Kennzeichen
   // if (q.ende && answer === "ja") {
-  if (q.ende === "ja") {   
+  // if (q.ende === "ja") { 
+  if (q.ende) {  
         finishForm();
     return;
   }
