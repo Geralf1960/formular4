@@ -360,8 +360,8 @@ function showAttributes(q) {
         input.appendChild(opt);
       });
      // ----- Checkbox-Gruppen -----
-    } else if (type.startsWith("checkbox(")) {
-      let opts = type.substring(9, type.length - 1).split(",");
+    } else if (attr.type.startsWith("checkbox(")) {
+      let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let div = document.createElement("div");
         let chk = document.createElement("input");
