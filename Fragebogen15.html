@@ -20,7 +20,6 @@
 
 <h2>rcon Fragebogen Demo - Test Ende-1</h2>
 <div id="question"></div>
-<div id="ende"></div>  
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
 
@@ -213,7 +212,7 @@ function handleAnswer(answer) {
   }
   // Ende bei Kennzeichen
   // if (q.ende && answer === "ja") {
-  // if (q.ende === "ja") { 
+  // unabhängig, ob JA/Nein Button gedrückt wurde
   if (q.ende) {  
         finishForm();
     return;
