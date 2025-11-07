@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Digitaler Fragebogen</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #question { font-size: 18px; margin-bottom: 15px; }
+    button { margin: 5px; padding: 8px 16px; }
+    textarea, select, input[type=text], input[type=number], input[type=date] {
+      width: 100%; margin: 5px 0; padding: 6px;
+    }
+    #upload, #attributes { margin-top: 20px; padding: 10px; border: 1px solid #ccc; display:none; }
+    #done { margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<h2>rcon Fragebogen Demo - Test Ende</h2>
+<div id="question"></div>
+<button onclick="handleAnswer('ja')">Ja</button>
+<button onclick="handleAnswer('nein')">Nein</button>
+
+<div id="upload">
+  <p><a id="upload-link" href="#" target="_blank">→ Datei hier hochladen</a></p>
+</div>
+
+<div id="attributes">
+  <h4>Zusätzliche Angaben</h4>
+  <form id="attrForm"></form>
+  <button onclick="submitAttributes()">Weiter</button>
+</div>
+
+<div id="done" style="display:none;">
+  <h3>Vielen Dank für Ihre Teilnahme!</h3>
+</div>
+
+<script>
+(function() { emailjs.init("ueUbQfFPpdM5MC2z2"); })();
+const SERVICE_ID = "service_b074ymd";
+const TEMPLATE_ID = "template_omwd93k";
+
+const EXCEL_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Empfaenger-Upload-Links-7.xlsx";
+const QUESTIONS_URL = "https://raw.githubusercontent.com/Geralf1960/formular4/main/Fragen.xlsx";
+
+let questions = [];
+let uploadLinks = {};
+let current = null;
+let stack = [];
+let answers = [];
+
+// ===== Excel laden =====
+async function loadExcel(url) {
+  const resp = await fetch(url);
+  const buf = await resp.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(sheet);
+}
+
+// ===== Fragenstruktur aus Excel =====
+async function loadQuestionsFromExcel() {
+  const response = await fetch(QUESTIONS_URL);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet);
+
+  const map = {};
+  json.forEach(row => {
+    let attrRaw = row.Attribute || "";
+    // String in Array umwandeln
+    let attrs = typeof attrRaw === "string"
+      ? attrRaw.split(";").map(a => a.trim()).filter(a => a.length > 0)
+      : [];
+
+    map[row.ID] = {
+      id: row.ID,
+      parent: row.ParentID,
+      text: row.Frage,
+      upload: row.Upload && row.Upload.toString().toLowerCase() === "ja",
+      end: row.Ende && row.Ende.toString().toLowerCase() === "ja",
+      attributes: attrs,
+      sub: []
+    };
+  });
+
+  const roots = [];
+  json.forEach(row => {
+    if (row.ParentID) {
+      if (map[row.ParentID]) {
+        map[row.ParentID].sub.push(map[row.ID]);
+      }
+    } else {
+      roots.push(map[row.ID]);
+    }
+  });
+
+  questions = roots;
+}
+// ===== Fragenstruktur aus Excel =====
+async function loadQuestions() {
+  const data = await loadExcel(QUESTIONS_URL);
+  const map = {};
+  data.forEach(row => {
+    map[row.ID] = {
+      id: row.ID,
+      parent: row.ParentID,
+      frage: row.Frage,
+      upload: (row.Upload || "").toLowerCase() === "ja",
+      ende: (row.Ende || "").toLowerCase() === "ja",
+      attributes: parseAttributes(row.Attribute),
+      // attributes: typeof row.Attribute === "string"
+      //  ? row.Attribute.split(";").map(a => a.trim())
+      //  : [],
+      sub: []
+    };
+  });
+  data.forEach(row => {
+    if (row.ParentID && map[row.ParentID]) {
+      map[row.ParentID].sub.push(map[row.ID]);
+    }
+  });
+  questions = data.filter(r => !r.ParentID).map(r => map[r.ID]);
+}
+
+function parseAttributes(str) {
+  if (!str) return [];
+  return str.split(";").map(a => {
+    const parts = a.split(":");
+    return {
+      label: parts[0].trim(),
+      type: (parts[1] || "text").trim().toLowerCase(),
+      required: (parts[2] || "").toLowerCase() === "pflicht"
+    };
+  });
+}
+
+// ===== Uploadlinks laden =====
+async function loadUploadLinks() {
+  const data = await loadExcel(EXCEL_URL);
+  data.forEach(row => {
+    if (row.Email && row.UploadLink) {
+      uploadLinks[row.Email.trim().toLowerCase()] = row.UploadLink.trim();
+    }
+  });
+}
+
+// ===== Start =====
+async function startForm() {
+  await loadUploadLinks();
+  await loadQuestions();
+  // await loadQuestionsFromExcel();
+
+  const params = new URLSearchParams(window.location.search);
+  const user = (params.get("user") || "").toLowerCase();
+  // console.log(user);
+  // console.log(uploadLinks);
+  // console.log(questions);
+
+  if (!uploadLinks[user]) {
+    document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
+    return;
+  }
+
+  current = { list: questions, idx: 0, user };
+  // console.log("Inhalt von current: "); 
+  // console.log(current);
+  showQuestion();
+}
+
+// ===== Frage anzeigen =====
+function showQuestion() {
+  document.getElementById("upload").style.display = "none";
+  document.getElementById("attributes").style.display = "none";
+
+  if (!current || current.idx >= current.list.length) {
+    if (stack.length > 0) {
+      current = stack.pop();
+      showQuestion();
+    } else {
+      finishForm();
+    }
+    return;
+  }
+
+  const q = current.list[current.idx];
+  document.getElementById("question").innerText = q.frage;
+}
+
+// ===== Antwort verarbeiten =====
+function handleAnswer(answer) {
+  const q = current.list[current.idx];
+  answers.push(q.frage + ": " + answer);
+  
+
+  // Ja -> ggf. Attribute oder Upload
+  if (answer === "ja") {
+    if (q.upload) {
+      document.getElementById("upload-link").href = uploadLinks[current.user];
+      document.getElementById("upload").style.display = "block";
+    }
+    if (q.attributes.length > 0) {
+      showAttributes(q);
+      // renderAttributes(q);
+      return;
+    }
+   
+  }
+  // Ende bei Kennzeichen
+  // if (q.ende && answer === "ja") {
+  if (q.ende === "ja") {   
+        finishForm();
+    return;
+  }
+  // Wenn Unterfragen vorhanden, auf Stack und rein
+  if (answer === "ja")  {
+    if (q.sub.length > 0) {
+      stack.push({ list: current.list, idx: current.idx + 1, user: current.user });
+      current = { list: q.sub, idx: 0, user: current.user };
+      showQuestion();
+      return;
+    } 
+    }  
+  
+
+
+
+  current.idx++;
+  showQuestion();
+}
+
+// ===== Attribute anzeigen =====
+function renderAttributes(q) {
+  console.log("Inhlt von q: ")
+  console.log(q)
+  let form = document.getElementById("attrForm");
+  form.innerHTML = "";
+
+  q.forEach(def => {
+    if (!def.trim()) return;
+
+    // Format: Bezeichnung:Typ[:Pflicht]
+    let [label, type = "text", requiredFlag = "optional"] = def.split(":").map(s => s.trim());
+    const isRequired = requiredFlag.toLowerCase() === "pflicht";
+
+    let wrapper = document.createElement("div");
+    wrapper.style.marginBottom = "8px";
+
+    // ----- Info-Feld -----
+    if (type === "info") {
+      let p = document.createElement("p");
+      p.innerText = label;
+      wrapper.appendChild(p);
+      form.appendChild(wrapper);
+      return;
+    }
+
+    // ----- Hidden-Feld -----
+    if (type === "hidden") {
+      let input = document.createElement("input");
+      input.type = "hidden";
+      input.value = label.includes("=") ? label.split("=")[1].trim() : label;
+      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
+      input.dataset.required = isRequired;
+      form.appendChild(input);
+      return;
+    }
+
+    // ----- Label für sichtbare Felder -----
+    let lbl = document.createElement("label");
+    lbl.innerText = label + (isRequired ? " *" : "") + ": ";
+    wrapper.appendChild(lbl);
+
+    // ----- Auswahlfelder -----
+    if (type.startsWith("select(")) {
+      let select = document.createElement("select");
+      let opts = type.substring(7, type.length - 1).split(",");
+      select.innerHTML = "<option value=''>Bitte wählen...</option>";
+      opts.forEach(o => {
+        let opt = document.createElement("option");
+        opt.value = o.trim();
+        opt.innerText = o.trim();
+        select.appendChild(opt);
+      });
+      select.dataset.label = label;
+      select.dataset.required = isRequired;
+      wrapper.appendChild(select);
+
+    // ----- Checkbox-Gruppen -----
+    } else if (type.startsWith("checkbox(")) {
+      let opts = type.substring(9, type.length - 1).split(",");
+      opts.forEach(o => {
+        let div = document.createElement("div");
+        let chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.value = o.trim();
+        chk.dataset.label = label;
+        chk.dataset.required = isRequired;
+        let l = document.createElement("span");
+        l.innerText = " " + o.trim();
+        div.appendChild(chk);
+        div.appendChild(l);
+        wrapper.appendChild(div);
+      });
+
+    // ----- Readonly-Feld -----
+    } else if (type === "readonly") {
+      let input = document.createElement("input");
+      input.type = "text";
+      input.value = label.includes("=") ? label.split("=")[1].trim() : "";
+      input.readOnly = true;
+      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
+      wrapper.appendChild(input);
+
+    // ----- Datumsfeld -----
+    } else if (type === "date") {
+      let input = document.createElement("input");
+      input.type = "date";
+      input.dataset.label = label;
+      input.dataset.required = isRequired;
+      wrapper.appendChild(input);
+
+    // ----- Standard Textfeld -----
+    } else {
+      let input = document.createElement("input");
+      input.type = "text";
+      input.dataset.label = label;
+      input.dataset.required = isRequired;
+      input.placeholder = "Eingabe...";
+      wrapper.appendChild(input);
+    }
+
+    form.appendChild(wrapper);
+  });
+}
+  
+function showAttributes(q) {
+  const form = document.getElementById("attrForm");
+  form.innerHTML = "";
+  q.attributes.forEach(attr => {
+    const wrap = document.createElement("div");
+    const label = document.createElement("label");
+    label.textContent = attr.label + (attr.required ? " *" : "") + ": ";
+    wrap.appendChild(label);
+
+    let input;
+    if (attr.type.startsWith("select(")) {
+      input = document.createElement("select");
+      const opts = attr.type.substring(7, attr.type.length - 1).split(",");
+      input.innerHTML = "<option value=''>--Bitte wählen--</option>";
+      opts.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o.trim();
+        opt.textContent = o.trim();
+        input.appendChild(opt);
+      });
+    } else if (attr.type === "checkbox") {
+      input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = "Ja";
+    } else if (attr.type === "info") {
+      input = document.createElement("p");
+      //input.innerText = label;
+      //console.log("info");
+      //console.log(form);
+      wrap.appendChild(input);
+      form.appendChild(wrap);
+      return;
+      
+    } else {
+      input = document.createElement("input");
+      input.type = attr.type === "date" ? "date" :
+                   attr.type === "number" ? "number" : "text";
+    }
+    input.dataset.label = attr.label;
+    input.dataset.required = attr.required;
+    wrap.appendChild(input);
+    form.appendChild(wrap);
+  });
+  document.getElementById("attributes").style.display = "block";
+}
+
+// ===== Attribute absenden =====
+function submitAttributes() {
+  const form = document.getElementById("attrForm");
+  const inputs = form.querySelectorAll("input, select");
+  const q = current.list[current.idx];
+  const values = [];
+
+  for (let el of inputs) {
+    const isReq = el.dataset.required === "true";
+    const val = el.type === "checkbox" ? (el.checked ? "True" : "") : el.value;
+    if (isReq && !val) {
+         alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
+      return;
+    }
+    if (val) values.push(`${el.dataset.label}: ${val}`);
+    console.log(el.dataset.label,val)
+    
+  }
+
+  if (values.length > 0)
+    answers[answers.length - 1] += " | " + values.join(" | ");
+
+  document.getElementById("attributes").style.display = "none";
+  document.getElementById("upload").style.display = "none";
+
+  // Unterfragen nach Attributen berücksichtigen
+  if (q.sub && q.sub.length > 0) {
+    stack.push({ list: current.list, idx: current.idx + 1, user: current.user });
+    current = { list: q.sub, idx: 0, user: current.user };
+    showQuestion();
+    return;
+  }
+
+  // Ende-Kennzeichen prüfen
+  if (q.ende) {
+    finishForm();
+    return;
+  }
+
+  current.idx++;
+  showQuestion();
+}
+
+// ===== Abschluss =====
+function finishForm() {
+  document.getElementById("question").style.display = "none";
+  document.getElementById("attributes").style.display = "none";
+  document.getElementById("upload").style.display = "none";
+  document.getElementById("done").style.display = "block";
+
+  const params = new URLSearchParams(window.location.search);
+  const user = params.get("user");
+
+  emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    from_email: user,
+    answers: answers.join("\n")
+  });
+}
+
+startForm();
+</script>
+</body>
+</html>
