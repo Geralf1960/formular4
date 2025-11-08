@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-7</h2>
+<h2>rcon Fragebogen - checkbox-8</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -123,6 +123,8 @@ async function loadQuestions() {
             required: req && req.trim().toLowerCase() === "pflicht"
             };
          })
+     : [],
+    sub: []  
    };
   });
   data.forEach(row => {
