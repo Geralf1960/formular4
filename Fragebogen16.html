@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-8</h2>
+<h2>rcon Fragebogen - checkbox-9</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -213,8 +213,8 @@ function handleAnswer(answer) {
       document.getElementById("upload").style.display = "block";
     }
     if (q.attributes.length > 0) {
-      // showAttributes(q);
-      renderAttributes(q);
+      showAttributes(q);
+      // renderAttributes(q);
       return;
     }
    
