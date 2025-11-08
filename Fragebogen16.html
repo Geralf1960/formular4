@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-1</h2>
+<h2>rcon Fragebogen - checkbox-2</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -368,7 +368,7 @@ function showAttributes(q) {
         chk.type = "checkbox";
         chk.value = o.trim();
         chk.dataset.label = label;
-        chk.dataset.required = isRequired;
+        // chk.dataset.required = isRequired;
         let l = document.createElement("span");
         l.innerText = " " + o.trim();
         div.appendChild(chk);
