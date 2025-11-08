@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-6</h2>
+<h2>rcon Fragebogen - checkbox-7</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -111,6 +111,7 @@ async function loadQuestions() {
       frage: row.Frage,
       upload: (row.Upload || "").toLowerCase() === "ja",
       ende: (row.Ende || "").toLowerCase() === "ja",
+      sub: [],
       // attributes: parseAttributes(row.Attribute),
       attributes: row.Attribute
          ? row.Attribute.split(";").map(a => {
@@ -122,7 +123,7 @@ async function loadQuestions() {
             required: req && req.trim().toLowerCase() === "pflicht"
             };
          });
-      sub: []
+
    };
   });
   data.forEach(row => {
