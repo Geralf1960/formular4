@@ -121,9 +121,8 @@ async function loadQuestions() {
             type: typeRaw ? typeRaw.trim() : "text",
             required: req && req.trim().toLowerCase() === "pflicht"
             };
-         })
-      : [],
-
+         }),
+      sub: [],
    };
   });
   data.forEach(row => {
