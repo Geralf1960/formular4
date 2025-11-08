@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-3</h2>
+<h2>rcon Fragebogen - checkbox-4</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -111,12 +111,20 @@ async function loadQuestions() {
       frage: row.Frage,
       upload: (row.Upload || "").toLowerCase() === "ja",
       ende: (row.Ende || "").toLowerCase() === "ja",
-      attributes: parseAttributes(row.Attribute),
-      // attributes: typeof row.Attribute === "string"
-      //  ? row.Attribute.split(";").map(a => a.trim())
-      //  : [],
-      sub: []
-    };
+      // attributes: parseAttributes(row.Attribute),
+      attributes: row.Attribute
+         ? row.Attribute.split(";").map(a => {
+          const [main, req] = a.split("|");
+          const [label, typeRaw] = main.split(":");
+          return {
+            label: label?.trim(),
+            type: typeRaw ? typeRaw.trim() : "text",
+            required: req && req.trim().toLowerCase() === "pflicht"
+            };
+         })
+      : [],
+
+   };
   });
   data.forEach(row => {
     if (row.ParentID && map[row.ParentID]) {
@@ -204,8 +212,8 @@ function handleAnswer(answer) {
       document.getElementById("upload").style.display = "block";
     }
     if (q.attributes.length > 0) {
-      showAttributes(q);
-      // renderAttributes(q);
+      // showAttributes(q);
+      renderAttributes(q);
       return;
     }
    
@@ -236,108 +244,77 @@ function handleAnswer(answer) {
 
 // ===== Attribute anzeigen =====
 function renderAttributes(q) {
-  console.log("Inhlt von q: ")
-  console.log(q)
   let form = document.getElementById("attrForm");
   form.innerHTML = "";
 
-  q.forEach(def => {
-    if (!def.trim()) return;
-
-    // Format: Bezeichnung:Typ[:Pflicht]
-    let [label, type = "text", requiredFlag = "optional"] = def.split(":").map(s => s.trim());
-    const isRequired = requiredFlag.toLowerCase() === "pflicht";
+  attrDefs.forEach(def => {
+    if (!def.label) return;
 
     let wrapper = document.createElement("div");
-    wrapper.style.marginBottom = "8px";
+    wrapper.style.marginBottom = "10px";
 
-    // ----- Info-Feld -----
-    if (type === "info") {
-      let p = document.createElement("p");
-      p.innerText = label;
-      wrapper.appendChild(p);
-      form.appendChild(wrapper);
-      return;
-    }
-
-    // ----- Hidden-Feld -----
-    if (type === "hidden") {
-      let input = document.createElement("input");
-      input.type = "hidden";
-      input.value = label.includes("=") ? label.split("=")[1].trim() : label;
-      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
-      input.dataset.required = isRequired;
-      form.appendChild(input);
-      return;
-    }
-
-    // ----- Label für sichtbare Felder -----
     let lbl = document.createElement("label");
-    lbl.innerText = label + (isRequired ? " *" : "") + ": ";
+    lbl.innerText = def.label + (def.required ? " *" : "");
     wrapper.appendChild(lbl);
+    wrapper.appendChild(document.createElement("br"));
 
-    // ----- Auswahlfelder -----
+    // Typ auflösen
+    const type = def.type;
+
     if (type.startsWith("select(")) {
       let select = document.createElement("select");
+      select.dataset.label = def.label;
+      select.required = def.required;
       let opts = type.substring(7, type.length - 1).split(",");
-      select.innerHTML = "<option value=''>Bitte wählen...</option>";
+      select.innerHTML = "<option value=''>-- Bitte wählen --</option>";
       opts.forEach(o => {
         let opt = document.createElement("option");
         opt.value = o.trim();
         opt.innerText = o.trim();
         select.appendChild(opt);
       });
-      select.dataset.label = label;
-      select.dataset.required = isRequired;
       wrapper.appendChild(select);
 
-    // ----- Checkbox-Gruppen -----
     } else if (type.startsWith("checkbox(")) {
-      let opts = type.substring(9, type.length - 1).split(",");
-      opts.forEach(o => {
-        let div = document.createElement("div");
-        let chk = document.createElement("input");
-        chk.type = "checkbox";
-        chk.value = o.trim();
-        chk.dataset.label = label;
-        chk.dataset.required = isRequired;
-        let l = document.createElement("span");
-        l.innerText = " " + o.trim();
-        div.appendChild(chk);
-        div.appendChild(l);
-        wrapper.appendChild(div);
+      let options = type.substring(9, type.length - 1).split(",");
+      options.forEach(opt => {
+        let cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.name = def.label; // Gruppierung über Label!
+        cb.value = opt.trim();
+        cb.dataset.label = def.label;
+        wrapper.appendChild(cb);
+
+        let span = document.createElement("span");
+        span.innerText = " " + opt.trim() + " ";
+        wrapper.appendChild(span);
       });
 
-    // ----- Readonly-Feld -----
-    } else if (type === "readonly") {
-      let input = document.createElement("input");
-      input.type = "text";
-      input.value = label.includes("=") ? label.split("=")[1].trim() : "";
-      input.readOnly = true;
-      input.dataset.label = label.includes("=") ? label.split("=")[0].trim() : label;
-      wrapper.appendChild(input);
-
-    // ----- Datumsfeld -----
     } else if (type === "date") {
       let input = document.createElement("input");
       input.type = "date";
-      input.dataset.label = label;
-      input.dataset.required = isRequired;
+      input.dataset.label = def.label;
+      input.required = def.required;
       wrapper.appendChild(input);
 
-    // ----- Standard Textfeld -----
+    } else if (type === "info") {
+      let p = document.createElement("p");
+      p.innerText = def.label;
+      wrapper.appendChild(p);
+
     } else {
       let input = document.createElement("input");
       input.type = "text";
-      input.dataset.label = label;
-      input.dataset.required = isRequired;
-      input.placeholder = "Eingabe...";
+      input.placeholder = "Optional...";
+      input.dataset.label = def.label;
+      input.required = def.required;
       wrapper.appendChild(input);
     }
 
     form.appendChild(wrapper);
   });
 }
+
   
 function showAttributes(q) {
   const form = document.getElementById("attrForm");
@@ -361,21 +338,18 @@ function showAttributes(q) {
       });
      // ----- Checkbox-Gruppen -----
     } else if (attr.type.startsWith("checkbox(")) {
-      input = document.createElement("input");
+      
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
-        let div = document.createElement("div");
-        let chk = document.createElement("input");
-        chk.type = "checkbox";
-        chk.value = o.trim();
-        chk.dataset.label = label;
-        // chk.dataset.required = isRequired;
-        let l = document.createElement("span");
-        l.innerText = " " + o.trim();
-        div.appendChild(chk);
-        div.appendChild(l);
-        // wrapper.appendChild(div);
-        input.appendChild(div);
+        let cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.name = attr.label
+        cb.value = o.trim();
+        cb.dataset.label = attr.label;
+       
+        let span = document.createElement("span");
+        span.innerText = " " + o.trim();       
+        input.appendChild(span);
       });  
     /*} else if (attr.type === "checkbox") {
       input = document.createElement("input");
@@ -411,7 +385,28 @@ function submitAttributes() {
   const q = current.list[current.idx];
   const values = [];
 
-  for (let el of inputs) {
+  // Textfelder, Datum & Dropdowns
+  form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
+    const val = el.value.trim();
+    const isReq = el.required;
+    if (isReq && !val) {
+      alert("Bitte füllen Sie alle Pflichtfelder aus.");
+      throw new Error("Pflichtfeld fehlt");
+    }
+    if (val) values.push(`${el.dataset.label}: ${val}`);
+  });
+  
+  // Checkbox-Gruppen
+  let checkboxGroups = {};
+  form.querySelectorAll("input[type=checkbox]").forEach(el => {
+    if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
+    if (el.checked) checkboxGroups[el.name].push(el.value);
+  });
+  Object.entries(checkboxGroups).forEach(([label, arr]) => {
+    if (arr.length > 0) values.push(`${label}: [${arr.join(", ")}]`);
+  });
+  
+  /* for (let el of inputs) {
     const isReq = el.dataset.required === "true";
     const val = el.type === "checkbox" ? (el.checked ? "True" : "") : el.value;
     if (isReq && !val) {
@@ -421,7 +416,7 @@ function submitAttributes() {
     if (val) values.push(`${el.dataset.label}: ${val}`);
     console.log(el.dataset.label,val)
     
-  }
+    }*/
 
   if (values.length > 0)
     answers[answers.length - 1] += " | " + values.join(" | ");
