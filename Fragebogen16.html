@@ -361,6 +361,7 @@ function showAttributes(q) {
       });
      // ----- Checkbox-Gruppen -----
     } else if (attr.type.startsWith("checkbox(")) {
+      input = document.createElement("input");
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let div = document.createElement("div");
