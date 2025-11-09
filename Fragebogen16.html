@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-10</h2>
+<h2>rcon Fragebogen - checkbox-11</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -133,7 +133,7 @@ async function loadQuestions() {
     }
   });
   questions = data.filter(r => !r.ParentID).map(r => map[r.ID]);
-  console.log
+
 }
 
 function parseAttributes(str) {
@@ -348,6 +348,7 @@ function showAttributes(q) {
         cb.name = attr.label
         cb.value = o.trim();
         cb.dataset.label = attr.label;
+        input.appendChild(cb);
        
         let span = document.createElement("span");
         span.innerText = " " + o.trim();       
