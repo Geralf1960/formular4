@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-13</h2>
+<h2>rcon Fragebogen - checkbox-14</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -341,12 +341,12 @@ function showAttributes(q) {
       });
       wrap.appendChild(input);
      // ----- Checkbox-Gruppen -----
-    } else if (attr.type.startsWith("checkbox(")) {
-      input = document.createElement("checkbox");
+    } else if (attr.type.startsWith("mcheckbox(")) {
+      input = document.createElement("mcheckbox");
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let cb = document.createElement("input");
-        cb.type = "checkbox";
+        cb.type = "mcheckbox";
         cb.name = attr.label
         cb.value = o.trim();
         cb.dataset.label = attr.label;
@@ -356,11 +356,10 @@ function showAttributes(q) {
         span.innerText = " " + o.trim();       
         wrap.appendChild(span);
       });  
-    /*} else if (attr.type === "checkbox") {
+    } else if (attr.type === "checkbox") {
       input = document.createElement("input");
       input.type = "checkbox";
-      input.value = "Ja";
-    */  
+      input.value = "Ja*  
     } else if (attr.type === "info") {
       input = document.createElement("p");
       //input.innerText = label;
