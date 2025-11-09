@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-12</h2>
+<h2>rcon Fragebogen - checkbox-13</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -342,7 +342,7 @@ function showAttributes(q) {
       wrap.appendChild(input);
      // ----- Checkbox-Gruppen -----
     } else if (attr.type.startsWith("checkbox(")) {
-     
+      input = document.createElement("checkbox");
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let cb = document.createElement("input");
