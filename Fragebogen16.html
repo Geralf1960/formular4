@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-11</h2>
+<h2>rcon Fragebogen - checkbox-12</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -252,7 +252,6 @@ function renderAttributes(q) {
   attrDefs.forEach(def => {
     if (!def.label) return;
 
-    let wrapper = document.createElement("div");
     wrapper.style.marginBottom = "10px";
 
     let lbl = document.createElement("label");
@@ -266,6 +265,7 @@ function renderAttributes(q) {
     if (type.startsWith("select(")) {
       let select = document.createElement("select");
       select.dataset.label = def.label;
+    let wrapper = document.createElement("div");
       select.required = def.required;
       let opts = type.substring(7, type.length - 1).split(",");
       select.innerHTML = "<option value=''>-- Bitte wählen --</option>";
@@ -326,6 +326,7 @@ function showAttributes(q) {
     const label = document.createElement("label");
     label.textContent = attr.label + (attr.required ? " *" : "") + ": ";
     wrap.appendChild(label);
+    wrap.appendChild(document.createElement("br"));
 
     let input;
     if (attr.type.startsWith("select(")) {
@@ -338,9 +339,10 @@ function showAttributes(q) {
         opt.textContent = o.trim();
         input.appendChild(opt);
       });
+      wrap.appendChild(input);
      // ----- Checkbox-Gruppen -----
     } else if (attr.type.startsWith("checkbox(")) {
-      input = document.createElement("input");
+     
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let cb = document.createElement("input");
@@ -348,11 +350,11 @@ function showAttributes(q) {
         cb.name = attr.label
         cb.value = o.trim();
         cb.dataset.label = attr.label;
-        input.appendChild(cb);
+        wrap.appendChild(cb);
        
         let span = document.createElement("span");
         span.innerText = " " + o.trim();       
-        input.appendChild(span);
+        wrap.appendChild(span);
       });  
     /*} else if (attr.type === "checkbox") {
       input = document.createElement("input");
