@@ -404,8 +404,9 @@ function submitAttributes() {
   
   // Checkbox-Gruppen
   let checkboxGroups = {};
+  checkboxGroups[el.name] = [];
   form.querySelectorAll("input[type=checkbox]").forEach(el => {
-    // if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
+   // if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
     if (el.checked) checkboxGroups[el.name].push(el.value);
   });
   console.log(checkboxGroups);
