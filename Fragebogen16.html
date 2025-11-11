@@ -394,8 +394,8 @@ function submitAttributes() {
   form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
     const val = el.value.trim();
     const isReq = el.dataset.required;
-    // console.log("Wert: ", val);
-    // console.log("IsRequ: ", isReq);
+    console.log("Wert: ", val);
+    console.log("IsRequ: ", isReq);
     if (isReq && !val) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
       throw new Error("Pflichtfeld fehlt");
