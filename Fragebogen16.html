@@ -168,7 +168,7 @@ async function startForm() {
   const user = (params.get("user") || "").toLowerCase();
   // console.log(user);
   // console.log(uploadLinks);
-  console.log(questions);
+  // console.log(questions);
 
   if (!uploadLinks[user]) {
     document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
@@ -380,7 +380,7 @@ function showAttributes(q) {
     form.appendChild(wrap);
   });
   document.getElementById("attributes").style.display = "block";
-  console.log(form);
+  // console.log(form);
 }
 
 // ===== Attribute absenden =====
@@ -408,7 +408,7 @@ function submitAttributes() {
     if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
     if (el.checked) checkboxGroups[el.name].push(el.value);
   });
-  console.log(checkboxGroups);
+  // console.log(checkboxGroups);
   Object.entries(checkboxGroups).forEach(([label, arr]) => {
     if (arr.length > 0) values.push(`${label}: [${arr.join(", ")}]`);
   });
@@ -421,7 +421,7 @@ function submitAttributes() {
       return;
     }
     if (val) values.push(`${el.dataset.label}: ${val}`);
-    console.log(el.dataset.label,val)
+    // console.log(el.dataset.label,val)
     
     }*/
 
