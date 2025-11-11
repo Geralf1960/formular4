@@ -378,14 +378,15 @@ function showAttributes(q) {
     form.appendChild(wrap);
   });
   document.getElementById("attributes").style.display = "block";
-  // console.log(form);
+  console.log("Formular-Attribut-Anzeige: ",form);
 }
 
 // ===== Attribute absenden =====
 function submitAttributes() {
   const form = document.getElementById("attrForm");
+
   const inputs = form.querySelectorAll("input, select");
-  // console.log(inputs);
+  console.log("Attribute-nach-Weiter-button :",inputs);
   const q = current.list[current.idx];
   const values = [];
 
