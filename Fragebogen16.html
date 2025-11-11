@@ -237,9 +237,6 @@ function handleAnswer(answer) {
     } 
     }  
   
-console.log(answer);
-
-
   current.idx++;
   showQuestion();
 }
@@ -455,6 +452,8 @@ function finishForm() {
   document.getElementById("attributes").style.display = "none";
   document.getElementById("upload").style.display = "none";
   document.getElementById("done").style.display = "block";
+  
+  console.log(answer);
 
   const params = new URLSearchParams(window.location.search);
   const user = params.get("user");
