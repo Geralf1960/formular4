@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-14</h2>
+<h2>rcon Fragebogen - checkbox-16</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -353,7 +353,7 @@ function showAttributes(q) {
         wrap.appendChild(cb);
        
         let span = document.createElement("span");
-        span.innerText = " " + o.trim();       
+        span.innerText = " " + o.trim() + " ";       
         wrap.appendChild(span);
       });  
     } else if (attr.type === "checkbox") {
