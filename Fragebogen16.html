@@ -132,6 +132,7 @@ async function loadQuestions() {
       map[row.ParentID].sub.push(map[row.ID]);
     }
   });
+console.log("Fragen :",data);
   questions = data.filter(r => !r.ParentID).map(r => map[r.ID]);
 
 }
@@ -168,7 +169,7 @@ async function startForm() {
   const user = (params.get("user") || "").toLowerCase();
   // console.log(user);
   // console.log(uploadLinks);
-  // console.log(questions);
+  console.log("questions: "questions);
 
   if (!uploadLinks[user]) {
     document.getElementById("question").innerText = "Kein Upload-Link für diesen Benutzer gefunden.";
