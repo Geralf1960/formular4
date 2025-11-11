@@ -237,7 +237,7 @@ function handleAnswer(answer) {
     } 
     }  
   
-
+console.log(answer);
 
 
   current.idx++;
@@ -326,8 +326,7 @@ function showAttributes(q) {
     const label = document.createElement("label");
     label.textContent = attr.label + (attr.required ? " *" : "") + ": ";
     wrap.appendChild(label);
-    // wrap.appendChild(document.createElement("br"));
-
+   
     let input;
     if (attr.type.startsWith("select(")) {
       input = document.createElement("select");
