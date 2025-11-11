@@ -288,7 +288,7 @@ function renderAttributes(q) {
         wrapper.appendChild(cb);
 
         let span = document.createElement("span");
-        span.innerText = " " + opt.trim() + "p";
+        span.innerText = " " + opt.trim() + " ";
         wrapper.appendChild(span);
       });
 
@@ -326,7 +326,7 @@ function showAttributes(q) {
     const label = document.createElement("label");
     label.textContent = attr.label + (attr.required ? " *" : "") + ": ";
     wrap.appendChild(label);
-    wrap.appendChild(document.createElement("br"));
+    // wrap.appendChild(document.createElement("br"));
 
     let input;
     if (attr.type.startsWith("select(")) {
