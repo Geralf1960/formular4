@@ -387,7 +387,7 @@ function showAttributes(q) {
 function submitAttributes() {
   const form = document.getElementById("attrForm");
   const inputs = form.querySelectorAll("input, select");
-  console.log(inputs);
+  // console.log(inputs);
   const q = current.list[current.idx];
   const values = [];
 
@@ -408,6 +408,7 @@ function submitAttributes() {
     if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
     if (el.checked) checkboxGroups[el.name].push(el.value);
   });
+  console.log(checkboxGroups);
   Object.entries(checkboxGroups).forEach(([label, arr]) => {
     if (arr.length > 0) values.push(`${label}: [${arr.join(", ")}]`);
   });
