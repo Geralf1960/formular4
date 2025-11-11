@@ -346,6 +346,7 @@ function showAttributes(q) {
         cb.type = "checkbox";
         cb.name = attr.label
         cb.value = o.trim();
+        cb.dataset.required = attr.required;
         cb.dataset.label = attr.label;
         wrap.appendChild(cb);
        
