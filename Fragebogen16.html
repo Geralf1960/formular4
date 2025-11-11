@@ -346,7 +346,7 @@ function showAttributes(q) {
       let opts = attr.type.substring(9, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let cb = document.createElement("input");
-        cb.type = "mcheckbox";
+        cb.type = "checkbox";
         cb.name = attr.label
         cb.value = o.trim();
         cb.dataset.label = attr.label;
