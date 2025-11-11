@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Digitaler Fragebogen</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script> 
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
@@ -387,6 +387,7 @@ function showAttributes(q) {
 function submitAttributes() {
   const form = document.getElementById("attrForm");
   const inputs = form.querySelectorAll("input, select");
+  console.log(inputs);
   const q = current.list[current.idx];
   const values = [];
 
