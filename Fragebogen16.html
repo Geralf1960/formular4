@@ -399,7 +399,8 @@ function submitAttributes() {
     console.log("IsRequ: ", isReq);
    if (isReq && !val) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
-      throw new Error("Pflichtfeld fehlt");
+      return; 
+     // throw new Error("Pflichtfeld fehlt");
     }
     if (val) values.push(`${el.dataset.label}: ${val}`);
   });
