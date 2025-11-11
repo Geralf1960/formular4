@@ -415,17 +415,18 @@ function submitAttributes() {
     if (arr.length > 0) values.push(`${label}: [${arr.join(", ")}]`);
   });
   
-  /* for (let el of inputs) {
+  for (let el of inputs) {
     const isReq = el.dataset.required === "true";
     const val = el.type === "checkbox" ? (el.checked ? "True" : "") : el.value;
-    if (isReq && !val) {
+    if (el.type === "checkbox") {
+      if (isReq && !val) {
          alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
-      return;
+        return;
+      }
+      if (val) values.push(`${el.dataset.label}: ${val}`);
+     
     }
-    if (val) values.push(`${el.dataset.label}: ${val}`);
-    // console.log(el.dataset.label,val)
-    
-    }*/
+  }
 
   if (values.length > 0)
     answers[answers.length - 1] += " | " + values.join(" | ");
@@ -458,8 +459,6 @@ function finishForm() {
   document.getElementById("upload").style.display = "none";
   document.getElementById("done").style.display = "block";
   
-  console.log(answers);
-
   const params = new URLSearchParams(window.location.search);
   const user = params.get("user");
 
