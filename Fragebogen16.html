@@ -339,7 +339,7 @@ function showAttributes(q) {
      // ----- Checkbox-Gruppen -----
     } else if (attr.type.startsWith("mcheckbox(")) {
       input = document.createElement("mcheckbox");
-      let opts = attr.type.substring(9, attr.type.length - 1).split(",");
+      let opts = attr.type.substring(10, attr.type.length - 1).split(",");
       opts.forEach(o => {
         let cb = document.createElement("input");
         cb.type = "checkbox";
