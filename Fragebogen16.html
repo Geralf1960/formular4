@@ -18,7 +18,7 @@
 </head>
 <body>
 
-<h2>rcon Fragebogen - checkbox-16</h2>
+<h2>rcon Fragebogen - checkbox-17</h2>
 <div id="question"></div>
 <button onclick="handleAnswer('ja')">Ja</button>
 <button onclick="handleAnswer('nein')">Nein</button>
@@ -393,9 +393,9 @@ function submitAttributes() {
   // Textfelder, Datum & Dropdowns
   form.querySelectorAll("input:not([type=checkbox]), select").forEach(el => {
     const val = el.value.trim();
-    const isReq = el.required;
-    console.log("Wert: ", val);
-    console.log("IsRequ: ", isReq);
+    const isReq = el.dataset.required;
+    // console.log("Wert: ", val);
+    // console.log("IsRequ: ", isReq);
     if (isReq && !val) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
       throw new Error("Pflichtfeld fehlt");
