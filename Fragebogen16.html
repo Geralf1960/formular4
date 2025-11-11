@@ -399,8 +399,7 @@ function submitAttributes() {
     console.log("IsRequ: ", isReq);
    if (isReq && !val) {
       alert("Bitte füllen Sie alle Pflichtfelder aus.");
-      return; 
-     // throw new Error("Pflichtfeld fehlt");
+      throw new Error("Pflichtfeld fehlt");
     }
     if (val) values.push(`${el.dataset.label}: ${val}`);
   });
@@ -424,7 +423,7 @@ function submitAttributes() {
          alert(`Bitte füllen Sie das Pflichtfeld "${el.dataset.label}" aus.`);
         return;
       }
-      if (val) values.push(`${el.dataset.label}: ${val}`);
+      // if (val) values.push(`${el.dataset.label}: ${val}`);
      
     }
   }
